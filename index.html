@@ -107,7 +107,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="2026.11.11.2";
+const APP_VERSION="2026.11.11.3";
 document.getElementById("ver").textContent="v"+APP_VERSION;
 
 /* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
@@ -314,7 +314,7 @@ function render(){
      `<div class="f"><label>&nbsp;</label><button class="btn s" id="rcadd">＋ 高さを追加</button></div></div>`;
   h+=`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button class="btn a" id="btnAI" ${S.busy?"disabled":""}>🤖 AIで図面から読み取る（駐車場・階段など）</button>
-      <span class="note">${S.busy?esc(S.busy):"AIの設定が必要です（右上の🔑）。使わなくても手入力で動きます。"}</span></div>`;
+      <span class="note" id="aistat">${S.busy?esc(S.busy):"AIの設定が必要です（右上の🔑）。使わなくても手入力で動きます。"}</span></div>`;
   if(S.aiMsg) h+=`<div class="msg ${S.aiMsg.startsWith("✅")?"ok":"ng"}">${esc(S.aiMsg)}</div>`;
   if(S.aiDiff.length) h+=`<div class="msg info">文字から読んだ値とAIの値が違う項目（文字の値を優先しています。必要なら上で直接書き換えてください）：<br>${S.aiDiff.map(esc).join("<br>")}</div>`;
   if(S.aiRaw) h+=`<details style="margin-top:6px"><summary>AIの読み取りメモ（間違いチェック用）</summary><pre class="raw">${esc(S.aiRaw)}</pre></details>`;
@@ -427,13 +427,15 @@ async function modelCandidates(key){
   return fallback;
 }
 function b64(bytes){ let s="";const CH=0x8000; for(let i=0;i<bytes.length;i+=CH) s+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH)); return btoa(s); }
-async function callGemini(key,bytes,mime){
+async function callGemini(key,bytes,mime,st){
+  st=st||(()=>{});
   const cands=(await modelCandidates(key)).slice(0,6), body=JSON.stringify({contents:[{parts:[{text:AI_PROMPT},{inline_data:{mime_type:mime,data:b64(bytes)}}]}],generationConfig:{temperature:0}});
   let last="",net=false,errs=[],quota=0;
   for(const m of cands){
     for(let a=0;a<3;a++){
-      let r; try{ r=await fetch(`https://generativelanguage.googleapis.com/v1beta/${m}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body}); }
-      catch(e){ net=true; last="通信に失敗: "+e.message; if(a<2){await new Promise(r=>setTimeout(r,2500*(a+1)));continue;} r=null; }
+      let r; st(`${m.replace("models/","")} で読み取り中…（${a?a+1+"回目の再試行":"最大100秒"}）`);
+      try{ const ac=new AbortController(), tm=setTimeout(()=>ac.abort(),100000); try{ r=await fetch(`https://generativelanguage.googleapis.com/v1beta/${m}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body,signal:ac.signal}); } finally{clearTimeout(tm);} }
+      catch(e){ if(e.name==="AbortError"){ errs.push(m.replace("models/","")+" → 100秒たっても応答なし"); last=m+": 応答なし"; break; } net=true; last="通信に失敗: "+e.message; if(a<2){await new Promise(r=>setTimeout(r,2500*(a+1)));continue;} r=null; }
       if(!r) break;
       if(r.ok){ const j=await r.json(); const t=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts.map(p=>p.text||"").join(""); if(t) return t; last=m+": 空の応答"; break; }
       const tx=(await r.text()).slice(0,200);
@@ -465,7 +467,7 @@ async function runAI(){
   if(!key){ S.aiMsg="⚠️ AIのキーが未設定です。右上の「🔑 AIの設定」から入力してください（使わない場合は、手入力でも見積は出せます）。"; render(); return; }
   S.busy="AIが図面を読んでいます…（30秒〜1分ほどかかります）"; S.aiMsg=""; render();
   try{
-    const t=await callGemini(key,S.bytes,S.mime); S.aiRaw=t; mergeAI(S,parseAI(t)); S.aiMsg="✅ AIの読み取りが終わりました。値を確認してください（「AI」と付いた項目）。";
+    const t=await callGemini(key,S.bytes,S.mime,m=>{S.busy="🤖 "+m;const e=document.getElementById("aistat");if(e)e.textContent=S.busy;}); S.aiRaw=t; mergeAI(S,parseAI(t)); S.aiMsg="✅ AIの読み取りが終わりました。値を確認してください（「AI」と付いた項目）。";
   }catch(e){ S.aiMsg="⚠️ AIの読み取りに失敗しました："+e.message; }
   S.busy=""; render();
 }
