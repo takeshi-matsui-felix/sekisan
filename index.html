@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>松井建設 積算システム</title>
+<meta name="color-scheme" content="light">
+<style>
+:root{--navy:#16324F;--navy2:#1d4268;--amber:#e8a33d;--line:#d7dee8;--bg:#f3f6fa;--ok:#15803d;--warn:#b45309;--ng:#b91c1c;--blue:#1d4ed8}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;background:var(--bg);color:#1e293b;font-size:14px}
+header{background:var(--navy);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:20}
+header h1{font-size:16px;margin:0;flex:1}
+header .ver{font-size:10px;opacity:.6}
+button{font:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 14px;font-weight:700;color:var(--navy)}
+.btn.p{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn.a{background:var(--amber);border-color:var(--amber);color:#3b2a05}
+.btn.s{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+header .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.4);padding:6px 10px;font-size:12px}
+.wrap{display:flex;gap:14px;max-width:1280px;margin:0 auto;padding:14px;align-items:flex-start}
+aside{width:210px;flex-shrink:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}
+aside h3{margin:0 0 8px;font-size:12px;color:#64748b}
+.pl{display:flex;gap:4px;margin-bottom:6px}
+.pl button.n{flex:1;text-align:left;border:1px solid var(--line);background:#f8fafc;border-radius:6px;padding:6px 8px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl button.n.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.pl button.x{border:none;background:none;color:#94a3b8}
+main{flex:1;min-width:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.card h2{font-size:14px;margin:0 0 8px;color:var(--navy)}
+#drop{border:2px dashed #94a3b8;border-radius:12px;padding:36px 12px;text-align:center;background:#fff;color:#475569}
+#drop.over{background:#eaf2fb;border-color:var(--navy)}
+.note{font-size:12px;color:#64748b;line-height:1.7}
+.msg{padding:8px 10px;border-radius:8px;font-size:12px;margin:6px 0;line-height:1.7}
+.msg.ok{background:#ecfdf3;color:var(--ok)} .msg.warn{background:#fff7ed;color:var(--warn)} .msg.ng{background:#fef2f2;color:var(--ng)} .msg.info{background:#eff6ff;color:var(--blue)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.f label{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#475569;margin-bottom:2px}
+.f input[type=number],.f select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit}
+.f input.man{background:#fffbeb;border-color:var(--amber)}
+.badge{font-size:10px;padding:1px 6px;border-radius:9px;font-weight:700;white-space:nowrap}
+.b-text{background:#dcfce7;color:#166534}.b-ai{background:#dbeafe;color:#1e40af}.b-man{background:#fef3c7;color:#92400e}.b-none{background:#fee2e2;color:#991b1b}.b-chk{background:#e0e7ff;color:#3730a3}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tabs button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-weight:700}
+.tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+table.t{border-collapse:collapse;width:100%;min-width:620px}
+table.t th,table.t td{border:1px solid var(--line);padding:4px 6px;text-align:left}
+table.t th{background:#eef3f9;font-size:12px}
+table.t td.r{text-align:right}
+table.t input{width:100%;border:1px solid transparent;background:transparent;padding:3px 4px;font:inherit;border-radius:4px}
+table.t input:focus{border-color:var(--navy);background:#fff;outline:none}
+table.t input.num{text-align:right}
+table.t td.ov input{background:#fffbeb;border-color:var(--amber)}
+table.t tr.na td{color:var(--ng)}
+table.t tr.zero td{color:#94a3b8}
+.rst{border:none;background:none;color:#b45309;font-size:11px;padding:0 2px}
+.tot{display:flex;gap:16px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px;font-weight:700}
+.tot .big{font-size:18px;color:var(--navy)}
+#pdfbox{height:560px;overflow:auto;background:#525659;border-radius:8px;padding:10px 0;text-align:center}
+#pdfbox canvas{max-width:96%;background:#fff;margin:0 0 12px;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+dialog{border:none;border-radius:12px;padding:16px;max-width:460px;width:92%}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog input[type=password],dialog input[type=text]{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;font:inherit}
+details summary{cursor:pointer;font-weight:700;color:var(--navy)}
+pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;border-radius:6px;max-height:300px;overflow:auto}
+#printArea{display:none}
+@media (max-width:760px){.wrap{flex-direction:column}aside{width:100%}.grid{grid-template-columns:repeat(2,1fr)}}
+@media print{
+  body{background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block!important;font-family:"Noto Sans JP","Yu Gothic",sans-serif;color:#000}
+  #printArea h2{font-size:18px;margin:0 0 4px}
+  #printArea .sub{font-size:13px;margin:0 0 12px}
+  #printArea table{border-collapse:collapse;width:100%;font-size:12px}
+  #printArea th,#printArea td{border:1px solid #000;padding:5px 6px;text-align:left}
+  #printArea td.r{text-align:right}
+  #printArea h3{font-size:14px;margin:8px 0 0;text-align:right}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏗️ 松井建設 積算システム <span class="ver" id="ver"></span></h1>
+  <button class="btn" id="btnKey">🔑 AIの設定</button>
+</header>
+<div class="wrap">
+  <aside>
+    <h3>📂 解析した物件（このページを開いている間だけ）</h3>
+    <div id="plist"></div>
+    <button class="btn s" id="btnNew" style="width:100%;margin-top:6px">＋ 図面を追加</button>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="printArea"></div>
+
+<dialog id="dlgKey">
+  <h2 style="margin-top:0;font-size:15px">🔑 AIの設定（任意）</h2>
+  <p class="note">AI（Gemini）は、駐車場・階段・サイクルストッパーなど、文字からは読めない項目の補助にだけ使います。図面の文字が入っているPDFは、AIなしで読み取れます。<br>キーは<b>この端末のブラウザの中だけ</b>に保存され、Google以外には送られません。</p>
+  <label class="note">Gemini APIキー</label>
+  <input type="password" id="keyIn" autocomplete="off" placeholder="AIza...">
+  <label class="note" style="display:block;margin-top:6px"><input type="checkbox" id="keySave" checked> この端末に保存する</label>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+    <button class="btn" id="keyDel">キーを消す</button><button class="btn p" id="keyOk">閉じる</button>
+  </div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+"use strict";
+const APP_VERSION="2026.11.11.1";
+document.getElementById("ver").textContent="v"+APP_VERSION;
+
+/* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
+const PRICE={CB1:6500,CB2:7000,CB3:9500,CB4:12000,CB5:15000,CP5:22000,CP6:30000,CP7:35000,
+  ZANDO_G:8500,ZANDO_S:27000,SAISEKI:400,MORIDO:3500,SEICHI:45000,JUKI:35000,TENBA:600,
+  GAI_MIZUMORI:45000,GAI_JUKI:35000,TILE:50000,HABAKI:60000,DOMA:9000,DOMA_PUMP:45000,KURUMA:6000,LINE:18000,
+  JISAKI:4000,CYCLE:7500,GOMIBOX:7500,GOMIAREA:100000,SLIT:1500,HAISUI:12500,ENTMORTAR:35000,KAIDAN:15000,
+  KISO_TSUBO:70000,SUTECON:2000,UB:30000,TESTPIECE:25000,PUMP_K:35000,ONDO:2000,
+  PANEL_TSUBO:63500,TSURIGI:150000};
+// RC擁壁の単価（高さ別・円/m）。これ以外の高さが図面に出たら「単価未設定」と表示します
+const RC_PRICE={2000:203000,2500:275000};
+const RC_STD=[2000,2500];           // 常に表示する高さ
+const EXP_RATE=0.05, TAX_RATE=1.1;  // 現場諸経費5%、消費税10%
+const TEST_LEGACY_RC=false;         // 試験用（旧アプリとの突き合わせ専用。通常はfalse）
+
+/* ================= 数値ヘルパー ================= */
+const rnd2=x=>Number((+x||0).toFixed(2));
+const yen=n=>"¥"+Math.trunc(n).toLocaleString("ja-JP");
+const fmtQ=n=>{n=+n||0;return Number.isInteger(n)?String(n):String(rnd2(n));};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nz=s=>String(s).normalize("NFKC").replace(/\s+/g,"");
+
+/* ================= 読み取り項目 ================= */
+// {k:キー, l:表示名, u:単位, t:'text'|'ai'}  text=文字から読める / ai=AIか手入力が必要
+const FIELDS=[
+ {k:"S_AREA",l:"敷地面積",u:"㎡"},{k:"B_AREA",l:"建築面積",u:"㎡"},{k:"TOTAL_AREA",l:"延床面積",u:"㎡"},
+ {k:"F_DEEP_VAL",l:"深基礎費用",u:"万円"},{k:"MORIDO",l:"盛土",u:"m³"},{k:"ZANDO",l:"残土処分",u:"m³"},
+ {k:"CB1",l:"CB1段",u:"m"},{k:"CB2",l:"CB2段",u:"m"},{k:"CB3",l:"CB3段",u:"m"},{k:"CB4",l:"CB4段",u:"m"},{k:"CB5",l:"CB5段",u:"m"},
+ {k:"CP5",l:"CP5段",u:"m"},{k:"CP6",l:"CP6段",u:"m"},{k:"CP7",l:"CP7段",u:"m"},
+ {k:"P_TOTAL",l:"駐車場台数",u:"台",ai:1},{k:"C_UNIT",l:"サイクルストッパー設置数",u:"箇所",ai:1},
+ {k:"STAIRS",l:"階段施工 段数",u:"段",ai:1},{k:"JISAKI",l:"地先ブロック",u:"m",ai:1},
+ {k:"GOMI_BOX",l:"ゴミボックス",u:"",flag:1},{k:"GOMI_AREA",l:"ゴミ集積所",u:"",flag:1}
+];
+const AI_ALWAYS=["P_TOTAL","C_UNIT","STAIRS","JISAKI"];   // AIが読めば常に反映する項目
+
+/* ================= 図面の文字の取り出し ================= */
+async function extractFromPdf(doc){
+  const items=[];
+  for(let p=1;p<=doc.numPages;p++){
+    const pg=await doc.getPage(p), tc=await pg.getTextContent();
+    tc.items.forEach(i=>{ if(i.str&&i.str.trim()) items.push({s:i.str,x:i.transform[4],y:i.transform[5],w:i.width||0,p}); });
+  }
+  return parseItems(items);
+}
+function parseItems(items){
+  const res={vals:{},src:{},raw:{RC:[]},textChars:items.reduce((a,i)=>a+i.s.length,0)};
+  const set=(k,v)=>{res.vals[k]=v;res.src[k]="text";};
+  if(res.textChars<80){ res.noText=true; return res; }
+  // 行にまとめて文字列にする（同じ高さ・左から右）。大きな隙間は「¦」で区切る
+  const sorted=[...items].sort((a,b)=>a.p-b.p||b.y-a.y||a.x-b.x);
+  const rows=[];
+  sorted.forEach(i=>{ const r=rows.find(r=>r.p===i.p&&Math.abs(r.y-i.y)<=3); if(r)r.it.push(i); else rows.push({p:i.p,y:i.y,it:[i]}); });
+  const rowStr=r=>{ r.it.sort((a,b)=>a.x-b.x); let s="",px=null; r.it.forEach(i=>{ if(px!==null&&i.x-px>25)s+="¦"; s+=nz(i.s); px=i.x+(i.w||i.s.length*5); }); return s; };
+  const all=rows.map(rowStr).join("\n");
+  const flat=all.replace(/¦/g,"");   // 文字の隙間の記号を除いた版（「残土処 分」のような分割に対応）
+  const rv=re=>{const m=flat.match(re);return m?parseFloat(m[1].replace(/,/g,"")):null;};
+  // 面積：ラベルの右隣の数字（なければ文字列から）
+  const rowVal=label=>{
+    const l=items.find(i=>{const t=nz(i.s);return t===label+"："||t===label+":";});
+    if(l){ const c=items.filter(i=>i.p===l.p&&Math.abs(i.y-l.y)<3&&i.x>l.x&&/^[\d.,]+$/.test(i.s.trim())).sort((a,b)=>a.x-b.x)[0]; if(c) return parseFloat(c.s.replace(/,/g,"")); }
+    return null;
+  };
+  let v;
+  if((v=rowVal("敷地面積"))!==null||(v=rv(/敷地面積[:：]([\d.,]+)㎡/))!==null) set("S_AREA",v);
+  if((v=rowVal("建築面積"))!==null||(v=rv(/建築面積[:：]([\d.,]+)㎡/))!==null) set("B_AREA",v);
+  if((v=rowVal("延床面積"))!==null||(v=rv(/(?<!用)延床面積[:：]([\d.,]+)㎡/))!==null) set("TOTAL_AREA",v);
+  if((v=rv(/深基礎費用[:：]([\d.,]+)万円/))!==null) set("F_DEEP_VAL",v);
+  // 「※」で始まる行：盛土・残土処分
+  if((v=rv(/盛土[:：]([\d.,]+)m/))!==null) set("MORIDO",v);
+  if((v=rv(/残土処分[:：]([\d.,]+)m/))!==null) set("ZANDO",v);
+  // CB・CP（段数と長さ。同じ段数が複数あれば合算）
+  const sum={};
+  for(const m of flat.matchAll(/(CB|CP)([1-7])段(?:積)?\(t=\d+\)[:：]([\d.]+)m/g)){ const k=m[1]+m[2]; sum[k]=(sum[k]||0)+parseFloat(m[3]); }
+  Object.keys(sum).forEach(k=>set(k,rnd2(sum[k])));
+  // RC擁壁（高さ別）
+  const rc={};
+  for(const m of flat.matchAll(/RC擁壁\(t=(\d+)[、,，]H(\d+)\)[:：]([\d.]+)m/g)){ rc[m[2]]=(rc[m[2]]||0)+parseFloat(m[3]); }
+  res.raw.RC=Object.keys(rc).map(h=>({H:+h,L:rnd2(rc[h])}));
+  if(res.raw.RC.length) res.src.RC="text";
+  // 凡例：●（有り）／○（無し）。項目名の左にある記号を見る
+  const marks=items.filter(i=>/^[●○〇]$/.test(i.s.trim()));
+  const legend=name=>{
+    const lab=items.find(i=>nz(i.s).startsWith(name)); if(!lab) return null;
+    const c=marks.filter(m=>m.p===lab.p&&Math.abs(m.y-lab.y)<3&&m.x<lab.x&&lab.x-m.x<40).sort((a,b)=>b.x-a.x)[0];
+    return c?(c.s.trim()==="●"?1:0):null;
+  };
+  const gb=legend("ゴミボックス"); if(gb!==null) set("GOMI_BOX",gb);
+  const ga=legend("ゴミ集積所"); if(ga!==null) set("GOMI_AREA",ga);
+  const cy=legend("サイクルストッパ");
+  if(cy!==null){
+    if(cy===0) set("C_UNIT",0);
+    else { const n=(all.match(/サイクルストッパー\d{3,}/g)||[]).length; if(n>0) set("C_UNIT",n); }
+  }
+  // 図面に書かれていない「※CB」「※盛土」等は0（=無し）として扱う（図面の下部に記載がある図面のみ）
+  const hasNotes=/※/.test(all)&&/(新設|盛土|残土)/.test(all);
+  if(hasNotes){ ["MORIDO","ZANDO","CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7"].forEach(k=>{ if(res.vals[k]===undefined){res.vals[k]=0;res.src[k]="text0";} }); }
+  return res;
+}
+
+/* ================= 見積表の組み立て ================= */
+function buildRows(S){
+  const V=S.vals, g=k=>+V[k]||0;
+  const cbSum=[1,2,3,4,5].reduce((a,i)=>a+g("CB"+i),0);
+  const doma=rnd2(Math.max(0,g("S_AREA")-g("B_AREA")));
+  const tsubo=rnd2(g("B_AREA")*0.3025), totalTsubo=rnd2(g("TOTAL_AREA")*0.3025);
+  const fDeep=Math.trunc(g("F_DEEP_VAL")*10000);
+  const m=new Date().getMonth()+1, isTemp=(m>=11||m<=3)||(m>=7&&m<=9);
+  const R=(id,name,qty,unit,price,extra)=>Object.assign({id,name,qty,unit,price},extra||{});
+  // 造成
+  const z=[R("CB1","CB1段積み 厚120",g("CB1"),"m",PRICE.CB1),R("CB2","CB2段積み 厚120",g("CB2"),"m",PRICE.CB2),R("CB3","CB3段積み 厚120",g("CB3"),"m",PRICE.CB3),
+    R("CB4","CB4段積み 厚150",g("CB4"),"m",PRICE.CB4),R("CB5","CB5段積み 厚150",g("CB5"),"m",PRICE.CB5),
+    R("CP5","CP5段積み",g("CP5"),"m",PRICE.CP5),R("CP6","CP6段積み",g("CP6"),"m",PRICE.CP6),R("CP7","CP7段積み",g("CP7"),"m",PRICE.CP7)];
+  if(TEST_LEGACY_RC){ z.push(R("NAGOYA","名古屋式擁壁 L=2m",S.rc.reduce((a,r)=>a+r.L,0),"m",200000)); }
+  else {
+    const hs=[...new Set([...RC_STD,...S.rc.map(r=>r.H)])].sort((a,b)=>a-b);
+    hs.forEach(h=>{ const L=S.rc.filter(r=>r.H===h).reduce((a,r)=>a+r.L,0); const p=RC_PRICE[h]; z.push(R("RC"+h,"RC擁壁H"+h,rnd2(L),"m",p===undefined?0:p,{na:p===undefined&&L>0})); });
+  }
+  z.push(R("ZG","残土処分（良質土）",g("ZANDO"),"m3",PRICE.ZANDO_G),R("ZS","残土処分（産廃含む）",0,"m3",PRICE.ZANDO_S),
+    R("SAI","砕石敷（RC40-0）",rnd2(cbSum*0.3),"㎡",PRICE.SAISEKI),R("MORI","盛土",g("MORIDO"),"㎥",PRICE.MORIDO),
+    R("SEI","整地工",1,"式",PRICE.SEICHI),R("JUKI","重機回送費",1,"式",PRICE.JUKI),R("TEN","ブロック天端仕上げ",rnd2(cbSum),"m",PRICE.TENBA),R("EXP","現場諸経費（5%）",1,"式",0,{exp:1}));
+  const gg=[R("MIZU","水盛遣方",1,"式",PRICE.GAI_MIZUMORI),R("JUKI","重機回送費",1,"式",PRICE.GAI_JUKI),R("TILE","ポーチタイル施工",1,"式",PRICE.TILE),R("HABA","基礎巾木仕上げ",1,"式",PRICE.HABAKI),
+    R("DOMA","土間コンクリートt=100",doma,"㎡",PRICE.DOMA),R("DPUMP","土間ポンプ車",doma>0?1:0,"回",PRICE.DOMA_PUMP),
+    R("KURUMA","車止め2セット/台",g("P_TOTAL"),"台",PRICE.KURUMA),R("LINE","駐車場ライン引き",g("P_TOTAL"),"台",PRICE.LINE),
+    R("JISAKI","地先ブロック120面取り",g("JISAKI"),"m",PRICE.JISAKI),R("CYCLE","サイクルストッパー固定",g("C_UNIT"),"台",PRICE.CYCLE),
+    R("GBOX","ゴミボックス組み立て",g("GOMI_BOX")>0?1:0,"台",PRICE.GOMIBOX),R("GAREA","ゴミ集積所 6段",g("GOMI_AREA")>0?1:0,"式",PRICE.GOMIAREA),
+    R("SLIT","土間スリット部砕石敷き",rnd2(cbSum),"m",PRICE.SLIT),R("HAISUI","1階バルコニー・共用部 排水溝",4,"か所",PRICE.HAISUI),
+    R("ENT","エントランスドア内モルタル金鏝",1,"式",PRICE.ENTMORTAR),R("KAIDAN","階段施工",g("STAIRS"),"段",PRICE.KAIDAN),R("EXP","現場諸経費（5%）",1,"式",0,{exp:1})];
+  const k=[R("KISO","基礎本体工事（坪単価）",tsubo,"坪",PRICE.KISO_TSUBO),R("SUTE","スラブ下捨てコン",g("B_AREA"),"㎡",PRICE.SUTECON),R("UB","UB立上断熱材",1,"式",PRICE.UB),
+    R("TEST","テストピース検査",2,"回",PRICE.TESTPIECE),R("PUMP","ポンプ車呼出費",2,"回",PRICE.PUMP_K),R("FUKA","深基礎増打ち工事",1,"式",fDeep),
+    R("ONDO","温度補正費",isTemp?rnd2(g("B_AREA")*0.15):0,"㎥",isTemp?PRICE.ONDO:0),R("EXP","現場諸経費（5%）",1,"式",0,{exp:1})];
+  const p=[R("PANEL","パネル製作費",totalTsubo,"坪",PRICE.PANEL_TSUBO),R("TSURI","吊木取付費",1,"式",PRICE.TSURIGI),R("EXP","現場諸経費（5%）",1,"式",0,{exp:1})];
+  return {z,g:gg,k,p};
+}
+const TABS=[["z","造成工事"],["g","外構工事"],["k","基礎工事"],["p","2x4パネル製作"]];
+// 手入力の上書きを反映し、諸経費・金額を計算
+function calc(S,key){
+  const base=buildRows(S)[key], ov=(S.ov[key]||{});
+  const rows=base.map(r=>{ const o=ov[r.id]||{}; const x={...r}; ["name","qty","unit","price"].forEach(f=>{ if(!r.exp&&o[f]!==undefined) x[f]=o[f]; }); x.ov=o; return x; });
+  const sub=rows.filter(r=>!r.exp).reduce((a,r)=>a+r.qty*r.price,0);
+  rows.forEach(r=>{ if(r.exp) r.price=Math.trunc(sub*EXP_RATE); r.amount=Math.trunc(r.qty*r.price); });
+  const ex=rows.reduce((a,r)=>a+r.amount,0);
+  return {rows,ex,inc:Math.trunc(ex*TAX_RATE)};
+}
+
+/* ================= 状態 ================= */
+const DB=[]; let CUR=-1, TAB="z";
+const $=s=>document.querySelector(s);
+function newState(name,file,bytes,mime){
+  return {name,file,bytes,mime,vals:{},src:{},rc:[],ov:{z:{},g:{},k:{},p:{}},noText:false,ai:null,aiMsg:"",aiRaw:"",aiDiff:[],pdfDoc:null,busy:""};
+}
+function applyExtract(S,ex){
+  S.noText=!!ex.noText; S.rc=ex.raw.RC.map(r=>({...r}));
+  FIELDS.forEach(f=>{ S.vals[f.k]=ex.vals[f.k]!==undefined?ex.vals[f.k]:0; S.src[f.k]=ex.src[f.k]||"none"; });
+  S.src.RC=ex.src.RC||"none";
+}
+
+/* ================= 図面の読み込み ================= */
+async function addFile(file){
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const S=newState(file.name.replace(/\.[^.]+$/,""),file.name,bytes,file.type||"application/pdf");
+  if(/pdf/i.test(S.mime)||/\.pdf$/i.test(file.name)){
+    S.mime="application/pdf";
+    try{
+      S.pdfDoc=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+      applyExtract(S,await extractFromPdf(S.pdfDoc));
+    }catch(e){ S.err="PDFを読み込めませんでした："+e.message; }
+  } else { S.noText=true; S.imgUrl=URL.createObjectURL(file); applyExtract(S,{vals:{},src:{},raw:{RC:[]},noText:true}); }
+  DB.push(S); CUR=DB.length-1; TAB="z"; render(); drawPdf();
+}
+async function drawPdf(){
+  const S=DB[CUR]; const box=$("#pdfbox"); if(!S||!box||!S.pdfDoc||box.dataset.n===String(CUR)) return;
+  box.dataset.n=String(CUR); box.innerHTML="";
+  for(let p=1;p<=S.pdfDoc.numPages;p++){
+    const pg=await S.pdfDoc.getPage(p), vp=pg.getViewport({scale:1.6}), c=document.createElement("canvas");
+    c.width=vp.width; c.height=vp.height; box.appendChild(c);
+    await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+  }
+}
+
+/* ================= 画面 ================= */
+function render(){
+  $("#plist").innerHTML=DB.map((s,i)=>`<div class="pl"><button class="n ${i===CUR?"on":""}" data-i="${i}" title="${esc(s.name)}">${esc(s.name)}</button><button class="x" data-x="${i}" title="一覧から外す">✕</button></div>`).join("")||`<div class="note">まだありません</div>`;
+  $("#plist").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{CUR=+b.dataset.i;TAB="z";render();drawPdf();});
+  $("#plist").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{DB.splice(+b.dataset.x,1);CUR=Math.min(CUR,DB.length-1);render();drawPdf();});
+  const main=$("#main");
+  if(CUR<0){
+    main.innerHTML=`<div id="drop"><div style="font-size:16px;font-weight:700;color:var(--navy)">図面（PDF・画像）をここにドロップ</div>
+      <p class="note">複数まとめて入れられます。文字の入ったPDF（CADから出力したもの）は、AIを使わずに数値を読み取ります。</p>
+      <button class="btn p" id="pick">ファイルを選ぶ</button><input type="file" id="fi" accept="application/pdf,image/*" multiple hidden></div>`;
+    bindDrop(); return;
+  }
+  const S=DB[CUR], ex={};
+  let h="";
+  if(S.err) h+=`<div class="msg ng">${esc(S.err)}</div>`;
+  h+=`<div class="card"><div class="f"><label>物件名（印刷・PDF保存の名前に使います）</label><input type="text" id="pname" value="${esc(S.name)}" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font:inherit"></div></div>`;
+  h+=`<div class="card"><h2>📋 図面から読み取った値（直接書き換えられます）</h2>`;
+  if(S.noText) h+=`<div class="msg warn">このファイルには文字が入っていません（画像・スキャン）。下の「AIで読み取る」を使うか、手で入力してください。</div>`;
+  const miss=FIELDS.filter(f=>!f.ai&&!f.flag&&S.src[f.k]==="none").map(f=>f.l);
+  if(!S.noText&&miss.length) h+=`<div class="msg warn">図面から見つからなかった項目：${esc(miss.join("、"))}（0のままです。図面に記載があれば入力してください）</div>`;
+  h+=`<div class="grid">`+FIELDS.map(f=>fieldHtml(S,f)).join("")+`</div>`;
+  h+=`<div style="margin-top:10px"><b style="font-size:12px;color:#475569">RC擁壁（高さ別の長さ m）</b> ${badge(S.src.RC)}</div><div id="rcbox" class="grid" style="margin-top:4px">`+
+     S.rc.map((r,i)=>`<div class="f"><label>H<input type="number" data-rch="${i}" value="${r.H}" style="width:80px;margin-left:4px"> mm</label><input type="number" step="0.01" data-rcl="${i}" value="${r.L}" class="${S.src.RC==="man"?"man":""}"></div>`).join("")+
+     `<div class="f"><label>&nbsp;</label><button class="btn s" id="rcadd">＋ 高さを追加</button></div></div>`;
+  h+=`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn a" id="btnAI" ${S.busy?"disabled":""}>🤖 AIで図面から読み取る（駐車場・階段など）</button>
+      <span class="note">${S.busy?esc(S.busy):"AIの設定が必要です（右上の🔑）。使わなくても手入力で動きます。"}</span></div>`;
+  if(S.aiMsg) h+=`<div class="msg ${S.aiMsg.startsWith("✅")?"ok":"ng"}">${esc(S.aiMsg)}</div>`;
+  if(S.aiDiff.length) h+=`<div class="msg info">文字から読んだ値とAIの値が違う項目（文字の値を優先しています。必要なら上で直接書き換えてください）：<br>${S.aiDiff.map(esc).join("<br>")}</div>`;
+  if(S.aiRaw) h+=`<details style="margin-top:6px"><summary>AIの読み取りメモ（間違いチェック用）</summary><pre class="raw">${esc(S.aiRaw)}</pre></details>`;
+  h+=`</div>`;
+  h+=`<div class="card"><h2>🧮 見積</h2><div class="tabs">${TABS.map(t=>`<button data-tab="${t[0]}" class="${t[0]===TAB?"on":""}">${t[1]}</button>`).join("")}</div><div id="tbl"></div></div>`;
+  h+=`<div class="card"><details><summary>🖼️ 図面を表示する</summary><div style="margin-top:8px">${S.pdfDoc?`<div id="pdfbox"></div>`:(S.imgUrl?`<img src="${S.imgUrl}" style="max-width:100%">`:"")}</div></details></div>`;
+  main.innerHTML=h;
+  $("#pname").oninput=e=>{S.name=e.target.value;$("#plist").querySelector(".n.on").textContent=S.name;};
+  main.querySelectorAll("[data-fk]").forEach(inp=>inp.onchange=()=>{ const k=inp.dataset.fk; S.vals[k]=inp.tagName==="SELECT"?+inp.value:(parseFloat(inp.value)||0); S.src[k]="man"; render(); });
+  main.querySelectorAll("[data-rch]").forEach(inp=>inp.onchange=()=>{ S.rc[+inp.dataset.rch].H=parseInt(inp.value)||0; S.src.RC="man"; render(); });
+  main.querySelectorAll("[data-rcl]").forEach(inp=>inp.onchange=()=>{ S.rc[+inp.dataset.rcl].L=parseFloat(inp.value)||0; S.src.RC="man"; render(); });
+  $("#rcadd").onclick=()=>{S.rc.push({H:2000,L:0});S.src.RC="man";render();};
+  $("#btnAI").onclick=()=>runAI();
+  main.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;render();drawPdf();});
+  renderTable(); const det=main.querySelector("details:last-child"); if(det) det.ontoggle=()=>drawPdf();
+}
+function badge(s){ return ({text:'<span class="badge b-text">文字から</span>',text0:'<span class="badge b-text">記載なし=0</span>',ai:'<span class="badge b-ai">AI</span>',man:'<span class="badge b-man">手入力</span>',none:'<span class="badge b-none">未検出</span>'})[s]||""; }
+function fieldHtml(S,f){
+  const v=S.vals[f.k], s=S.src[f.k]==="none"&&(f.ai||f.flag)?"chk":S.src[f.k];
+  const b=s==="chk"?'<span class="badge b-chk">要確認</span>':badge(s);
+  if(f.flag) return `<div class="f"><label>${f.l} ${b}</label><select data-fk="${f.k}"><option value="0" ${!v?"selected":""}>無し</option><option value="1" ${v?"selected":""}>有り</option></select></div>`;
+  return `<div class="f"><label>${f.l}（${f.u}） ${b}</label><input type="number" step="0.01" data-fk="${f.k}" value="${v}" class="${S.src[f.k]==="man"?"man":""}"></div>`;
+}
+function renderTable(){
+  const S=DB[CUR]; if(!S) return; const c=calc(S,TAB), ov=S.ov[TAB];
+  let h=`<div style="overflow-x:auto"><table class="t"><tr><th>項目名</th><th style="width:90px">数量</th><th style="width:60px">単位</th><th style="width:110px">単価</th><th style="width:120px">金額</th></tr>`;
+  c.rows.forEach(r=>{
+    const o=r.ov, mk=f=>o[f]!==undefined?"ov":"";
+    h+=`<tr class="${r.na?"na":(r.qty===0&&!r.exp?"zero":"")}"><td class="${mk("name")}">${r.exp?esc(r.name):`<input data-r="${r.id}" data-f="name" value="${esc(r.name)}">`}${r.na?` <b>（単価未設定）</b>`:""}</td>
+      <td class="${mk("qty")}" style="${r.exp?"text-align:right":""}">${r.exp?fmtQ(r.qty):`<input class="num" type="number" step="0.01" data-r="${r.id}" data-f="qty" value="${r.qty}">`}</td>
+      <td class="${mk("unit")}">${r.exp?esc(r.unit):`<input data-r="${r.id}" data-f="unit" value="${esc(r.unit)}">`}</td>
+      <td class="r ${mk("price")}">${r.exp?yen(r.price):`<input class="num" type="number" data-r="${r.id}" data-f="price" value="${r.price}">`}</td>
+      <td class="r">${yen(r.amount)}${Object.keys(o).length&&!r.exp?` <button class="rst" data-rst="${r.id}" title="手入力を取り消して元に戻す">↺</button>`:""}</td></tr>`;
+  });
+  h+=`</table></div><div class="tot"><span>税別合計 <span class="big">${yen(c.ex)}</span></span><span>税込合計 <span class="big">${yen(c.inc)}</span></span></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn p" id="btnPrint">📄 印刷 / PDFに保存（${esc(TABS.find(t=>t[0]===TAB)[1])}）</button></div>
+    <div class="note" style="margin-top:6px">黄色の欄は手で書き換えた値です（↺で元に戻せます）。現場諸経費は自動で5%になります。PDF保存のファイル名は「${esc(S.name)}_${esc(TABS.find(t=>t[0]===TAB)[1])}」になります。</div>`;
+  $("#tbl").innerHTML=h;
+  $("#tbl").querySelectorAll("input[data-r]").forEach(inp=>inp.onchange=()=>{
+    const id=inp.dataset.r, f=inp.dataset.f; ov[id]=ov[id]||{};
+    ov[id][f]=(f==="name"||f==="unit")?inp.value:(parseFloat(inp.value)||0); renderTable(); });
+  $("#tbl").querySelectorAll("[data-rst]").forEach(b=>b.onclick=()=>{delete ov[b.dataset.rst];renderTable();});
+  $("#btnPrint").onclick=doPrint;
+}
+function doPrint(){
+  const S=DB[CUR], tn=TABS.find(t=>t[0]===TAB)[1], c=calc(S,TAB);
+  $("#printArea").innerHTML=`<h2>御見積書</h2><p class="sub">物件名：${esc(S.name)}　／　工事名：${esc(tn)}</p>
+    <table><tr><th>項目名</th><th>数量</th><th>単位</th><th>単価</th><th>金額</th></tr>`+
+    c.rows.map(r=>`<tr><td>${esc(r.name)}</td><td class="r">${fmtQ(r.qty)}</td><td>${esc(r.unit)}</td><td class="r">${yen(r.price)}</td><td class="r">${yen(r.amount)}</td></tr>`).join("")+
+    `</table><h3>総合計（税別）：${yen(c.ex)}</h3><h3>総合計（税込）：${yen(c.inc)}</h3>`;
+  const old=document.title; document.title=`${S.name}_${tn}`;
+  const back=()=>{document.title=old;window.removeEventListener("afterprint",back);};
+  window.addEventListener("afterprint",back); window.print(); setTimeout(back,60000);
+}
+function bindDrop(){
+  const d=$("#drop"), fi=$("#fi");
+  $("#pick").onclick=()=>fi.click(); fi.onchange=()=>handleFiles(fi.files);
+  d.ondragover=e=>{e.preventDefault();d.classList.add("over");}; d.ondragleave=()=>d.classList.remove("over");
+  d.ondrop=e=>{e.preventDefault();d.classList.remove("over");handleFiles(e.dataTransfer.files);};
+}
+async function handleFiles(fl){ for(const f of [...fl]) await addFile(f); }
+$("#btnNew").onclick=()=>{CUR=-1;render();};
+
+/* ================= AI（任意） ================= */
+const KEYNAME="sekisan_gemini_key";
+const getKey=()=>{try{return localStorage.getItem(KEYNAME)||sessionStorage.getItem(KEYNAME)||"";}catch(e){return "";}};
+$("#btnKey").onclick=()=>{$("#keyIn").value=getKey();$("#dlgKey").showModal();};
+$("#keyOk").onclick=()=>{ const v=$("#keyIn").value.trim();
+  try{ localStorage.removeItem(KEYNAME);sessionStorage.removeItem(KEYNAME); if(v){ ($("#keySave").checked?localStorage:sessionStorage).setItem(KEYNAME,v);} }catch(e){}
+  $("#dlgKey").close(); };
+$("#keyDel").onclick=()=>{try{localStorage.removeItem(KEYNAME);sessionStorage.removeItem(KEYNAME);}catch(e){} $("#keyIn").value="";};
+
+const AI_PROMPT=`積算士として座標巡回解析を執行せよ。
+        ①造成指示：図面下部の「※盛土」「※CB」「※RC擁壁」の数値を正確に抽出せよ。
+          - 【CB段数マッピング・厳守】「CB◯段」という表記の「◯」の数字と、出力フィールド名「CB◯」の数字は必ず一致させること。
+            例：「CB2段(t120):27m」と書かれていれば、値の27mは必ず CB2 に入れる（CB1には入れない）。
+            「CB1段」ならCB1、「CB3段」ならCB3、というように、段数の数字とフィールド番号を絶対にズラさないこと。
+            図面に登場しない段数のフィールドは0とする（例：CB2段しか記載がなければ CB1,CB3,CB4,CB5 は全て0）。
+        ②名称紐付け：図面上の「※RC擁壁」の数値は、NAGOYAとして出力せよ。
+        ③外構マッピング：図面下部中央の『凡例』エリアを確認せよ。
+          - 「● サイクルストッパー」のように、黒丸(●)がついている項目を『有り』、白丸(○)を『無し』と判定せよ。
+          - 【C_UNITカウント方法・厳守】サイクルストッパーが『有り(●)』の場合、配置図内に「サイクルストッパー」という文字ラベル（例：「サイクルストッパー2400」のような、名称＋寸法数値の組み合わせ）が**何箇所（何回）配置されているか**を数え、その**箇所数**を C_UNIT として出力せよ。
+            例：「サイクルストッパー2400」というラベルが図面内に1箇所だけ描かれていれば C_UNIT は 1。2箇所描かれていれば C_UNIT は 2。
+            自転車が停められる本数やバーの本数は数えないこと。あくまで「サイクルストッパー」ラベル自体の設置箇所数のみをカウントする。
+          - ゴミボックス(GOMI_BOX)およびゴミ集積所(GOMI_AREA)も同様に黒丸(●)判定を行い、有る場合は 1 を出力せよ。
+        ④【深基礎マッピング】：図面内の「留意点」エリアを注視し、「深基礎費用：〇〇万円」から数値を F_DEEP_VAL として抽出。
+        ⑤その他：残土(ZANDO), 面積(S_AREA, B_AREA), 駐車場(P_TOTAL), 階段(STAIRS)等を抽出。
+        ⑥【2x4パネルマッピング】：図面内の「建築面積②」の下に表示されている「延床面積」を精密にスキャンし、数値を TOTAL_AREA として抽出せよ。
+          ※「容積率算出用延床面積」ではなく、「延床面積」の欄の数値を使うこと。「敷地面積」と取り違えないこと。
+
+        【出力手順・厳守】
+        必ず以下の2段階で出力すること。数を数える項目（C_UNIT等）は、先に見えた個数を一つずつ書き出してから合計すること。
+        ステップ1: 見出し「【読み取りメモ】」の下に、各項目について図面のどこを見て何を読み取ったかを箇条書きで書く（自己検算も含む）。
+        ステップ2: 見出し「###RESULT###」の下に、読み取りメモの内容と矛盾しない最終結果のみを、以下の形式で1行で出力する。
+        S_AREA:数値, B_AREA:数値, TOTAL_AREA:数値, ZANDO:数値, P_TOTAL:数値, C_UNIT:数値, STAIRS:数値, CB1:数値, CB2:数値, CB3:数値, CB4:数値, CB5:数値, CP5:数値, CP6:数値, CP7:数値, NAGOYA:数値, MORIDO:数値, JISAKI:数値, SLIT:数値, GOMI_BOX:数値, GOMI_AREA:数値, F_DEEP_VAL:数値`;
+const BAD_MODEL=/(tts|image|embed|live|audio|vision|robotics|computer|learnlm|aqa|imagen|veo|gemma|thinking-exp|exp-)/i;
+async function modelCandidates(key){
+  try{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",{headers:{"x-goog-api-key":key}});
+    if(r.ok){ const j=await r.json();
+      const names=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")).map(m=>m.name).filter(n=>/gemini/i.test(n)&&!BAD_MODEL.test(n));
+      const pro=names.filter(n=>/pro/i.test(n)).sort().reverse(), flash=names.filter(n=>/flash/i.test(n)&&!/lite/i.test(n)).sort().reverse();
+      const o=[...pro,...flash]; if(o.length) return o; }
+  }catch(e){}
+  return ["models/gemini-2.5-pro","models/gemini-2.5-flash"];
+}
+function b64(bytes){ let s="";const CH=0x8000; for(let i=0;i<bytes.length;i+=CH) s+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH)); return btoa(s); }
+async function callGemini(key,bytes,mime){
+  const cands=(await modelCandidates(key)).slice(0,5), body=JSON.stringify({contents:[{parts:[{text:AI_PROMPT},{inline_data:{mime_type:mime,data:b64(bytes)}}]}],generationConfig:{temperature:0}});
+  let last="",net=false;
+  for(const m of cands){
+    for(let a=0;a<3;a++){
+      let r; try{ r=await fetch(`https://generativelanguage.googleapis.com/v1beta/${m}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body}); }
+      catch(e){ net=true; last="通信に失敗: "+e.message; if(a<2){await new Promise(r=>setTimeout(r,2500*(a+1)));continue;} r=null; }
+      if(!r) break;
+      if(r.ok){ const j=await r.json(); const t=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts.map(p=>p.text||"").join(""); if(t) return t; last=m+": 空の応答"; break; }
+      const tx=(await r.text()).slice(0,200);
+      if([400,404,429,500,503].includes(r.status)){ last=`${m}: HTTP ${r.status} ${tx}`; if(r.status===429)await new Promise(r=>setTimeout(r,2000)); break; }
+      throw new Error(`HTTP ${r.status}: ${tx}`);
+    }
+  }
+  throw new Error(net?"📶 通信が不安定な可能性があります。電波の良い場所でもう一度お試しください（"+last+"）":"すべてのモデルで失敗しました（"+last+"）");
+}
+function parseAI(text){
+  const rt=text.split("###RESULT###").pop(), out={};
+  ["S_AREA","B_AREA","TOTAL_AREA","ZANDO","P_TOTAL","C_UNIT","STAIRS","CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7","MORIDO","JISAKI","GOMI_BOX","GOMI_AREA","F_DEEP_VAL"].forEach(k=>{
+    const m=rt.match(new RegExp(k+"[:：]\\s*([\\d.]+)")); if(m) out[k]=rnd2(parseFloat(m[1])); });
+  return out;
+}
+function mergeAI(S,res){
+  S.aiDiff=[];
+  const lab=Object.fromEntries(FIELDS.map(f=>[f.k,f.l]));
+  Object.keys(res).forEach(k=>{
+    const cur=S.src[k], v=res[k]; if(cur==="man") return;               // 手入力は上書きしない
+    if(AI_ALWAYS.includes(k)||cur==="none"||cur===undefined){ S.vals[k]=(k.startsWith("GOMI_"))?(v>0?1:0):v; S.src[k]="ai"; }
+    else if(cur==="text"||cur==="text0"){ if(Math.abs((+S.vals[k]||0)-v)>0.005&&!k.startsWith("GOMI_")) S.aiDiff.push(`${lab[k]||k}：文字=${fmtQ(S.vals[k])} ／ AI=${fmtQ(v)}`); }
+  });
+}
+async function runAI(){
+  const S=DB[CUR], key=getKey();
+  if(!key){ S.aiMsg="⚠️ AIのキーが未設定です。右上の「🔑 AIの設定」から入力してください（使わない場合は、手入力でも見積は出せます）。"; render(); return; }
+  S.busy="AIが図面を読んでいます…（30秒〜1分ほどかかります）"; S.aiMsg=""; render();
+  try{
+    const t=await callGemini(key,S.bytes,S.mime); S.aiRaw=t; mergeAI(S,parseAI(t)); S.aiMsg="✅ AIの読み取りが終わりました。値を確認してください（「AI」と付いた項目）。";
+  }catch(e){ S.aiMsg="⚠️ AIの読み取りに失敗しました："+e.message; }
+  S.busy=""; render();
+}
+window.__APP={DB,calc,buildRows,parseItems,extractFromPdf,addFile,mergeAI,parseAI,get CUR(){return CUR;},setLegacy(v){/* 試験用 */}};
+render();
+</script>
+</body>
+</html>
