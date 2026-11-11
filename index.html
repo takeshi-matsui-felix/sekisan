@@ -107,7 +107,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="2026.11.11.4";
+const APP_VERSION="2026.11.11.5";
 document.getElementById("ver").textContent="v"+APP_VERSION;
 
 /* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
@@ -166,15 +166,15 @@ function parseItems(items){
   const rv=re=>{const m=flat.match(re);return m?parseFloat(m[1].replace(/,/g,"")):null;};
   // 面積：ラベルの右隣の数字（なければ文字列から）
   const rowVal=label=>{
-    const l=items.find(i=>{const t=nz(i.s);return t===label+"："||t===label+":";});
-    if(l){ const c=items.filter(i=>i.p===l.p&&Math.abs(i.y-l.y)<3&&i.x>l.x&&/^[\d.,]+$/.test(i.s.trim())).sort((a,b)=>a.x-b.x)[0]; if(c) return parseFloat(c.s.replace(/,/g,"")); }
+    const l=items.find(i=>{const t=nz(i.s);return t===label||t===label+"："||t===label+":";});
+    if(l){ const c=items.filter(i=>i.p===l.p&&Math.abs(i.y-l.y)<3&&i.x>l.x&&/^[\d.,]+$/.test(i.s.trim())).sort((a,b)=>a.x-b.x)[0]; if(c) return rnd2(parseFloat(c.s.replace(/,/g,""))); }
     return null;
   };
   let v;
   if((v=rowVal("敷地面積"))!==null||(v=rv(/敷地面積[:：]([\d.,]+)㎡/))!==null) set("S_AREA",v);
   if((v=rowVal("建築面積"))!==null||(v=rv(/建築面積[:：]([\d.,]+)㎡/))!==null) set("B_AREA",v);
   if((v=rowVal("延床面積"))!==null||(v=rv(/(?<!用)延床面積[:：]([\d.,]+)㎡/))!==null) set("TOTAL_AREA",v);
-  if((v=rv(/深基礎費用[:：]([\d.,]+)万/))!==null) set("F_DEEP_VAL",v);
+  if((v=rv(/深基礎費用[:：]?([\d.,]+)万/))!==null) set("F_DEEP_VAL",v);
   // 「※」で始まる行：盛土・残土処分
   if((v=rv(/盛土[:：]([\d.,]+)m/))!==null) set("MORIDO",v);
   if((v=rv(/残土処分[:：]([\d.,]+)m/))!==null) set("ZANDO",v);
@@ -202,7 +202,9 @@ function parseItems(items){
     else { const n=(all.match(/サイクルストッパー\d{3,}/g)||[]).length; if(n>0) set("C_UNIT",n); }
   }
   // 図面に書かれていない「※CB」「※盛土」等は0（=無し）として扱う（図面の下部に記載がある図面のみ）
-  const hasNotes=/※/.test(all)&&/(新設|盛土|残土)/.test(all);
+  // 「※CB2段(t120)：58m」のような記載一覧がある図面だけ、書かれていない項目を0(=無し)にする。
+  // 一覧がない図面（長さが図の中の寸法だけ）は「未検出」のままにして、AIか手入力にまかせる
+  const hasNotes=["MORIDO","ZANDO","CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7"].some(k=>res.vals[k]!==undefined)||res.raw.RC.length>0;
   if(hasNotes){ ["MORIDO","ZANDO","CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7"].forEach(k=>{ if(res.vals[k]===undefined){res.vals[k]=0;res.src[k]="text0";} }); }
   return res;
 }
