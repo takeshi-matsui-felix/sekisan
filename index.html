@@ -107,7 +107,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="2026.11.11.3";
+const APP_VERSION="2026.11.11.4";
 document.getElementById("ver").textContent="v"+APP_VERSION;
 
 /* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
@@ -174,17 +174,17 @@ function parseItems(items){
   if((v=rowVal("敷地面積"))!==null||(v=rv(/敷地面積[:：]([\d.,]+)㎡/))!==null) set("S_AREA",v);
   if((v=rowVal("建築面積"))!==null||(v=rv(/建築面積[:：]([\d.,]+)㎡/))!==null) set("B_AREA",v);
   if((v=rowVal("延床面積"))!==null||(v=rv(/(?<!用)延床面積[:：]([\d.,]+)㎡/))!==null) set("TOTAL_AREA",v);
-  if((v=rv(/深基礎費用[:：]([\d.,]+)万円/))!==null) set("F_DEEP_VAL",v);
+  if((v=rv(/深基礎費用[:：]([\d.,]+)万/))!==null) set("F_DEEP_VAL",v);
   // 「※」で始まる行：盛土・残土処分
   if((v=rv(/盛土[:：]([\d.,]+)m/))!==null) set("MORIDO",v);
   if((v=rv(/残土処分[:：]([\d.,]+)m/))!==null) set("ZANDO",v);
   // CB・CP（段数と長さ。同じ段数が複数あれば合算）
   const sum={};
-  for(const m of flat.matchAll(/(CB|CP)([1-7])段(?:積)?\(t=\d+\)[:：]([\d.]+)m/g)){ const k=m[1]+m[2]; sum[k]=(sum[k]||0)+parseFloat(m[3]); }
+  for(const m of flat.matchAll(/(CB|CP)([1-7])段(?:積)?(?:\(t=?\d+\))?[:：]([\d.]+)m/g)){ const k=m[1]+m[2]; sum[k]=(sum[k]||0)+parseFloat(m[3]); }
   Object.keys(sum).forEach(k=>set(k,rnd2(sum[k])));
   // RC擁壁（高さ別）
   const rc={};
-  for(const m of flat.matchAll(/RC擁壁\(t=(\d+)[、,，]H(\d+)\)[:：]([\d.]+)m/g)){ rc[m[2]]=(rc[m[2]]||0)+parseFloat(m[3]); }
+  for(const m of flat.matchAll(/RC擁壁\(t=?(\d+)[、,，]?H(\d+)\)[:：]([\d.]+)m/g)){ rc[m[2]]=(rc[m[2]]||0)+parseFloat(m[3]); }
   res.raw.RC=Object.keys(rc).map(h=>({H:+h,L:rnd2(rc[h])}));
   if(res.raw.RC.length) res.src.RC="text";
   // 凡例：●（有り）／○（無し）。項目名の左にある記号を見る
