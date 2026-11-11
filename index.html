@@ -56,7 +56,7 @@ table.t tr.zero td{color:#94a3b8}
 .rst{border:none;background:none;color:#b45309;font-size:11px;padding:0 2px}
 .tot{display:flex;gap:16px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px;font-weight:700}
 .tot .big{font-size:18px;color:var(--navy)}
-#pdfbox{height:560px;overflow:auto;background:#525659;border-radius:8px;padding:10px 0;text-align:center}
+#pdfbox{height:420px;overflow:auto;background:#525659;border-radius:8px;padding:10px 0;text-align:center}
 #pdfbox canvas{max-width:96%;background:#fff;margin:0 0 12px;box-shadow:0 3px 10px rgba(0,0,0,.4)}
 dialog{border:none;border-radius:12px;padding:16px;max-width:460px;width:92%}
 dialog::backdrop{background:rgba(0,0,0,.45)}
@@ -107,7 +107,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="2026.11.11.1";
+const APP_VERSION="2026.11.11.2";
 document.getElementById("ver").textContent="v"+APP_VERSION;
 
 /* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
@@ -303,6 +303,7 @@ function render(){
   let h="";
   if(S.err) h+=`<div class="msg ng">${esc(S.err)}</div>`;
   h+=`<div class="card"><div class="f"><label>物件名（印刷・PDF保存の名前に使います）</label><input type="text" id="pname" value="${esc(S.name)}" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font:inherit"></div></div>`;
+  h+=`<div class="card"><details id="pdfdet" ${S.pdfOpen===false?"":"open"}><summary>🖼️ 図面（クリックで開閉）</summary><div style="margin-top:8px">${S.pdfDoc?`<div id="pdfbox"></div>`:(S.imgUrl?`<img src="${S.imgUrl}" style="max-width:100%;max-height:480px">`:"")}</div></details></div>`;
   h+=`<div class="card"><h2>📋 図面から読み取った値（直接書き換えられます）</h2>`;
   if(S.noText) h+=`<div class="msg warn">このファイルには文字が入っていません（画像・スキャン）。下の「AIで読み取る」を使うか、手で入力してください。</div>`;
   const miss=FIELDS.filter(f=>!f.ai&&!f.flag&&S.src[f.k]==="none").map(f=>f.l);
@@ -319,7 +320,6 @@ function render(){
   if(S.aiRaw) h+=`<details style="margin-top:6px"><summary>AIの読み取りメモ（間違いチェック用）</summary><pre class="raw">${esc(S.aiRaw)}</pre></details>`;
   h+=`</div>`;
   h+=`<div class="card"><h2>🧮 見積</h2><div class="tabs">${TABS.map(t=>`<button data-tab="${t[0]}" class="${t[0]===TAB?"on":""}">${t[1]}</button>`).join("")}</div><div id="tbl"></div></div>`;
-  h+=`<div class="card"><details><summary>🖼️ 図面を表示する</summary><div style="margin-top:8px">${S.pdfDoc?`<div id="pdfbox"></div>`:(S.imgUrl?`<img src="${S.imgUrl}" style="max-width:100%">`:"")}</div></details></div>`;
   main.innerHTML=h;
   $("#pname").oninput=e=>{S.name=e.target.value;$("#plist").querySelector(".n.on").textContent=S.name;};
   main.querySelectorAll("[data-fk]").forEach(inp=>inp.onchange=()=>{ const k=inp.dataset.fk; S.vals[k]=inp.tagName==="SELECT"?+inp.value:(parseFloat(inp.value)||0); S.src[k]="man"; render(); });
@@ -328,7 +328,7 @@ function render(){
   $("#rcadd").onclick=()=>{S.rc.push({H:2000,L:0});S.src.RC="man";render();};
   $("#btnAI").onclick=()=>runAI();
   main.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;render();drawPdf();});
-  renderTable(); const det=main.querySelector("details:last-child"); if(det) det.ontoggle=()=>drawPdf();
+  renderTable(); const det=$("#pdfdet"); if(det) det.ontoggle=()=>{S.pdfOpen=det.open; if(det.open)drawPdf();};
 }
 function badge(s){ return ({text:'<span class="badge b-text">文字から</span>',text0:'<span class="badge b-text">記載なし=0</span>',ai:'<span class="badge b-ai">AI</span>',man:'<span class="badge b-man">手入力</span>',none:'<span class="badge b-none">未検出</span>'})[s]||""; }
 function fieldHtml(S,f){
@@ -409,21 +409,27 @@ const AI_PROMPT=`積算士として座標巡回解析を執行せよ。
         ステップ1: 見出し「【読み取りメモ】」の下に、各項目について図面のどこを見て何を読み取ったかを箇条書きで書く（自己検算も含む）。
         ステップ2: 見出し「###RESULT###」の下に、読み取りメモの内容と矛盾しない最終結果のみを、以下の形式で1行で出力する。
         S_AREA:数値, B_AREA:数値, TOTAL_AREA:数値, ZANDO:数値, P_TOTAL:数値, C_UNIT:数値, STAIRS:数値, CB1:数値, CB2:数値, CB3:数値, CB4:数値, CB5:数値, CP5:数値, CP6:数値, CP7:数値, NAGOYA:数値, MORIDO:数値, JISAKI:数値, SLIT:数値, GOMI_BOX:数値, GOMI_AREA:数値, F_DEEP_VAL:数値`;
-const BAD_MODEL=/(tts|image|embed|live|audio|vision|robotics|computer|learnlm|aqa|imagen|veo|gemma|thinking-exp|exp-)/i;
+const BAD_MODEL=/(tts|image|embed|live|audio|vision|robotics|computer|learnlm|aqa|imagen|veo|gemma|thinking-exp|exp-|omni|customtools|native)/i;
+function modelRank(n){
+  const pre=/preview|exp|latest/i.test(n)?1:0, fam=/flash/i.test(n)?(/lite/i.test(n)?2:0):(/pro/i.test(n)?1:3);
+  const ver=parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/)||[0,0])[1])||0;
+  return [pre,fam,-ver];
+}
 async function modelCandidates(key){
+  const fallback=["models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-2.0-flash"];
   try{
     const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",{headers:{"x-goog-api-key":key}});
     if(r.ok){ const j=await r.json();
       const names=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")).map(m=>m.name).filter(n=>/gemini/i.test(n)&&!BAD_MODEL.test(n));
-      const pro=names.filter(n=>/pro/i.test(n)).sort().reverse(), flash=names.filter(n=>/flash/i.test(n)&&!/lite/i.test(n)).sort().reverse();
-      const o=[...pro,...flash]; if(o.length) return o; }
+      names.sort((a,b)=>{const x=modelRank(a),y=modelRank(b);return x[0]-y[0]||x[1]-y[1]||x[2]-y[2]||a.localeCompare(b);});
+      if(names.length) return names; }
   }catch(e){}
-  return ["models/gemini-2.5-pro","models/gemini-2.5-flash"];
+  return fallback;
 }
 function b64(bytes){ let s="";const CH=0x8000; for(let i=0;i<bytes.length;i+=CH) s+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH)); return btoa(s); }
 async function callGemini(key,bytes,mime){
-  const cands=(await modelCandidates(key)).slice(0,5), body=JSON.stringify({contents:[{parts:[{text:AI_PROMPT},{inline_data:{mime_type:mime,data:b64(bytes)}}]}],generationConfig:{temperature:0}});
-  let last="",net=false;
+  const cands=(await modelCandidates(key)).slice(0,6), body=JSON.stringify({contents:[{parts:[{text:AI_PROMPT},{inline_data:{mime_type:mime,data:b64(bytes)}}]}],generationConfig:{temperature:0}});
+  let last="",net=false,errs=[],quota=0;
   for(const m of cands){
     for(let a=0;a<3;a++){
       let r; try{ r=await fetch(`https://generativelanguage.googleapis.com/v1beta/${m}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body}); }
@@ -431,11 +437,13 @@ async function callGemini(key,bytes,mime){
       if(!r) break;
       if(r.ok){ const j=await r.json(); const t=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts.map(p=>p.text||"").join(""); if(t) return t; last=m+": 空の応答"; break; }
       const tx=(await r.text()).slice(0,200);
-      if([400,404,429,500,503].includes(r.status)){ last=`${m}: HTTP ${r.status} ${tx}`; if(r.status===429)await new Promise(r=>setTimeout(r,2000)); break; }
+      if([400,404,429,500,503].includes(r.status)){ last=`${m}: HTTP ${r.status}`; errs.push(`${m.replace("models/","")} → ${r.status===429?"利用上限":r.status}`); if(r.status===429){quota++;await new Promise(r=>setTimeout(r,1500));} break; }
       throw new Error(`HTTP ${r.status}: ${tx}`);
     }
   }
-  throw new Error(net?"📶 通信が不安定な可能性があります。電波の良い場所でもう一度お試しください（"+last+"）":"すべてのモデルで失敗しました（"+last+"）");
+  if(net&&!errs.length) throw new Error("📶 通信が不安定な可能性があります。電波の良い場所でもう一度お試しください（"+last+"）");
+  if(quota&&quota===errs.length) throw new Error("Geminiの利用上限（無料枠の回数・容量）に達しています。数分〜翌日まで待つか、Google AI Studioで課金設定（有料プラン）をしてください。試したモデル："+errs.join("、"));
+  throw new Error("すべてのモデルで失敗しました（"+errs.join("、")+"）");
 }
 function parseAI(text){
   const rt=text.split("###RESULT###").pop(), out={};
