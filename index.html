@@ -75,7 +75,12 @@ details summary{cursor:pointer;font-weight:700;color:var(--navy)}
 pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;border-radius:6px;max-height:300px;overflow:auto}
 #printArea{display:none}
 @media (max-width:760px){.wrap{flex-direction:column}aside{width:100%}.grid{grid-template-columns:repeat(2,1fr)}}
+@page{size:A4;margin:12mm}
+@page land{size:A4 landscape;margin:10mm}
 @media print{
+  #printArea .pb{break-before:page}
+  #printArea .land{page:land}
+  #printArea img.plan{max-width:100%;max-height:170mm;display:block;margin:0 auto}
   body{background:#fff}
   body>*:not(#printArea){display:none!important}
   #printArea{display:block!important;font-family:"Noto Sans JP","Yu Gothic",sans-serif;color:#000}
@@ -118,7 +123,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="2026.11.12.1";
+const APP_VERSION="2026.11.12.3";
 document.getElementById("ver").textContent="v"+APP_VERSION;
 
 /* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
@@ -152,7 +157,7 @@ const FIELDS=[
  {k:"STAIRS",l:"階段施工 段数",u:"段",ai:1},{k:"JISAKI",l:"地先ブロック",u:"m",ai:1},
  {k:"GOMI_BOX",l:"ゴミボックス",u:"",flag:1},{k:"GOMI_AREA",l:"ゴミ集積所",u:"",flag:1}
 ];
-const AI_ALWAYS=["P_TOTAL","STAIRS","JISAKI"];   // AIが読めば常に精密側へ反映する項目
+const AI_ALWAYS=["P_TOTAL","JISAKI"];   // AIが読めば常に精密側へ反映する項目
 const CBKEYS=["CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7"];
 
 /* ================= 図面の文字の取り出し ================= */
@@ -236,6 +241,27 @@ function parseItems(items){
     });
     Object.keys(seen).forEach(k=>{ res.cand[k]=rnd2([...seen[k]].reduce((a,b)=>a+b,0)); });
   }
+  // ゴミ集積所：凡例に記号がなくても、配置図の中に「ごみ集積所」と書かれた囲いがあれば「有り」
+  if(res.vals.GOMI_AREA===undefined){
+    const plan=items.filter(i=>/^(ごみ|ゴミ)集積所$/.test(nz(i.s))&&!marks.some(m=>m.p===i.p&&Math.abs(m.y-i.y)<3&&m.x<i.x&&i.x-m.x<40));
+    if(plan.length) set("GOMI_AREA",1);
+  }
+  // 階段：「+90」「+250」「+410」のような高さ表示が約160mmずつ並んでいれば階段。いちばん低い表示は地盤(GL)なので、段数＝個数−1
+  const lv=items.map(i=>({t:nz(i.s),x:i.x,y:i.y,p:i.p})).filter(o=>/^\+\d{2,4}$/.test(o.t)).map(o=>({...o,v:parseInt(o.t.slice(1))}));
+  let live=[...lv], stairs=0, chains=[];
+  for(;;){
+    const n=live.length; if(n<3) break;
+    live.sort((a,b)=>a.v-b.v);
+    const len=new Array(n).fill(1), prv=new Array(n).fill(-1);
+    for(let j=0;j<n;j++) for(let i=0;i<j;i++){ const d=live[j].v-live[i].v;
+      if(live[j].p===live[i].p&&d>=120&&d<=200&&Math.hypot(live[j].x-live[i].x,live[j].y-live[i].y)<220&&len[i]+1>len[j]){len[j]=len[i]+1;prv[j]=i;} }
+    let b=0; for(let j=1;j<n;j++) if(len[j]>len[b]) b=j;
+    if(len[b]<3) break;
+    const ids=[]; for(let j=b;j>=0;j=prv[j]) ids.push(j);
+    chains.push(ids.map(j=>live[j].v).reverse()); stairs+=len[b]-1;
+    live=live.filter((_,j)=>!ids.includes(j));
+  }
+  if(stairs>0){ res.cand.STAIRS=stairs; res.stairChains=chains; }
   return res;
 }
 
@@ -293,7 +319,8 @@ function newState(name,file,bytes,mime){
 function applyExtract(S,ex){
   S.noText=!!ex.noText; S.rc=ex.raw.RC.map(r=>({...r}));
   FIELDS.forEach(f=>{ S.vals[f.k]=ex.vals[f.k]!==undefined?ex.vals[f.k]:0; S.src[f.k]=ex.src[f.k]||"none"; });
-  S.src.RC=ex.src.RC||"none"; S.cand=ex.cand||{}; S.digest=ex.digest||"";
+  S.src.RC=ex.src.RC||"none"; S.cand={...(ex.cand||{})}; S.digest=ex.digest||"";
+  if(S.cand.STAIRS>0&&S.src.STAIRS==="none"){ S.vals.STAIRS=S.cand.STAIRS; S.src.STAIRS="est"; S.stairNote=(ex.stairChains||[]).map(c=>c.map(v=>"+"+v).join(" ")).join(" ／ "); delete S.cand.STAIRS; }
 }
 
 /* ================= 図面の読み込み ================= */
@@ -321,50 +348,7 @@ async function drawPdf(){
 
 /* ================= 画面 ================= */
 function render(){
-  $("#plist").innerHTML=DB.map((s,i)=>`<div class="pl"><button class="n ${i===CUR?"on":""}" data-i="${i}" title="${esc(s.name)}">${esc(s.name)}</button><button class="x" data-x="${i}" title="一覧から外す">✕</button></div>`).join("")||`<div class="note">まだありません</div>`;
-  $("#plist").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{CUR=+b.dataset.i;TAB="z";render();drawPdf();});
-  $("#plist").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{DB.splice(+b.dataset.x,1);CUR=Math.min(CUR,DB.length-1);render();drawPdf();});
-  const main=$("#main");
-  if(CUR<0){
-    main.innerHTML=`<div id="drop"><div style="font-size:16px;font-weight:700;color:var(--navy)">図面（PDF・画像）をここにドロップ</div>
-      <p class="note">複数まとめて入れられます。文字の入ったPDF（CADから出力したもの）は、AIを使わずに数値を読み取ります。</p>
-      <button class="btn p" id="pick">ファイルを選ぶ</button><input type="file" id="fi" accept="application/pdf,image/*" multiple hidden></div>`;
-    bindDrop(); return;
-  }
-  const S=DB[CUR], ex={};
-  let h="";
-  if(S.err) h+=`<div class="msg ng">${esc(S.err)}</div>`;
-  h+=`<div class="card"><div class="f"><label>物件名（印刷・PDF保存の名前に使います）</label><input type="text" id="pname" value="${esc(S.name)}" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font:inherit"></div></div>`;
-  h+=`<div class="card"><details id="pdfdet" ${S.pdfOpen===false?"":"open"}><summary>🖼️ 図面（クリックで開閉）</summary><div style="margin-top:8px">${S.pdfDoc?`<div id="pdfbox"></div>`:(S.imgUrl?`<img src="${S.imgUrl}" style="max-width:100%;max-height:480px">`:"")}</div></details></div>`;
-  h+=`<div class="card"><h2>📋 図面から読み取った値（直接書き換えられます）</h2>`;
-  if(S.noText) h+=`<div class="msg warn">このファイルには文字が入っていません（画像・スキャン）。下の「AIで読み取る」を使うか、手で入力してください。</div>`;
-  const miss=FIELDS.filter(f=>!f.ai&&!f.flag&&S.src[f.k]==="none").map(f=>f.l);
-  if(!S.noText&&miss.length) h+=`<div class="msg warn">図面から見つからなかった項目：${esc(miss.join("、"))}（0のままです。図面に記載があれば入力してください）</div>`;
-  h+=`<div class="grid">`+FIELDS.map(f=>fieldHtml(S,f)).join("")+`</div>`;
-  h+=`<div style="margin-top:10px"><b style="font-size:12px;color:#475569">RC擁壁（高さ別の長さ m）</b> ${badge(S.src.RC)}</div><div id="rcbox" class="grid" style="margin-top:4px">`+
-     S.rc.map((r,i)=>`<div class="f"><label>H<input type="number" data-rch="${i}" value="${r.H}" style="width:80px;margin-left:4px"> mm</label><input type="number" step="0.01" data-rcl="${i}" value="${r.L}" class="${S.src.RC==="man"?"man":""}"></div>`).join("")+
-     `<div class="f"><label>&nbsp;</label><button class="btn s" id="rcadd">＋ 高さを追加</button></div></div>`;
-  h+=`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn a" id="btnAI" ${S.busy?"disabled":""}>🤖 AIで図面から読み取る（駐車場・階段など）</button>
-      <span class="note" id="aistat">${S.busy?esc(S.busy):"AIの設定が必要です（右上の🔑）。使わなくても手入力で動きます。"}</span></div>`;
-  if(S.aiMsg) h+=`<div class="msg ${S.aiMsg.startsWith("✅")?"ok":"ng"}">${esc(S.aiMsg)}</div>`;
-  if(S.aiDiff.length) h+=`<div class="msg info">文字から読んだ値とAIの値が違う項目（文字の値を優先しています。必要なら上で直接書き換えてください）：<br>${S.aiDiff.map(esc).join("<br>")}</div>`;
-  if(S.aiRaw) h+=`<details style="margin-top:6px"><summary>AIの読み取りメモ（間違いチェック用）</summary><pre class="raw">${esc(S.aiRaw)}</pre></details>`;
-  h+=`</div>`;
-  h+=`<div class="card"><h2>🧮 見積</h2><div class="tabs">${TABS.map(t=>`<button data-tab="${t[0]}" class="${t[0]===TAB?"on":""}">${t[1]}</button>`).join("")}</div><div id="tbl"></div></div>`;
-  main.innerHTML=h;
-  $("#pname").oninput=e=>{S.name=e.target.value;$("#plist").querySelector(".n.on").textContent=S.name;};
-  main.querySelectorAll("[data-fk]").forEach(inp=>inp.onchange=()=>{ const k=inp.dataset.fk; S.vals[k]=inp.tagName==="SELECT"?+inp.value:(parseFloat(inp.value)||0); S.src[k]="man"; render(); });
-  main.querySelectorAll("[data-rch]").forEach(inp=>inp.onchange=()=>{ S.rc[+inp.dataset.rch].H=parseInt(inp.value)||0; S.src.RC="man"; render(); });
-  main.querySelectorAll("[data-rcl]").forEach(inp=>inp.onchange=()=>{ S.rc[+inp.dataset.rcl].L=parseFloat(inp.value)||0; S.src.RC="man"; render(); });
-  $("#rcadd").onclick=()=>{S.rc.push({H:2000,L:0});S.src.RC="man";render();};
-  $("#btnAI").onclick=()=>runAI();
-  main.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;render();drawPdf();});
-  renderTable(); const det=$("#pdfdet"); if(det) det.ontoggle=()=>{S.pdfOpen=det.open; if(det.open)drawPdf();};
-}
-/* ================= 画面 ================= */
-function render(){
-  $("#plist").innerHTML=DB.map((s,i)=>`<div class="pl"><button class="n ${i===CUR?"on":""}" data-i="${i}" title="${esc(s.name)}">${esc(s.name)}</button><button class="x" data-x="${i}" title="一覧から外す">✕</button></div>`).join("")||`<div class="note">まだありません</div>`;
+  $("#plist").innerHTML=DB.map((s,i)=>`<div class="pl"><button class="n ${i===CUR?"on":""}" data-i="${i}" title="${esc(s.name)}">${s.busy?"⏳ ":(s.pv?"✅ ":"")}${esc(s.name)}</button><button class="x" data-x="${i}" title="一覧から外す">✕</button></div>`).join("")||`<div class="note">まだありません</div>`;
   $("#plist").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{CUR=+b.dataset.i;TAB="z";render();drawPdf();});
   $("#plist").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{DB.splice(+b.dataset.x,1);CUR=Math.min(CUR,DB.length-1);render();drawPdf();});
   const main=$("#main");
@@ -405,14 +389,42 @@ function render(){
   main.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;render();drawPdf();});
   renderTable(); const det=$("#pdfdet"); if(det) det.ontoggle=()=>{S.pdfOpen=det.open; if(det.open)drawPdf();};
 }
-function badge(s){ return ({text:'<span class="badge b-text">文字から</span>',text0:'<span class="badge b-text">記載なし=0</span>',ai:'<span class="badge b-ai">AI</span>',man:'<span class="badge b-man">手入力</span>',none:'<span class="badge b-none">未検出</span>'})[s]||""; }
+function badge(s){ return ({text:'<span class="badge b-text">文字から</span>',text0:'<span class="badge b-text">記載なし=0</span>',ai:'<span class="badge b-ai">AI</span>',man:'<span class="badge b-man">手入力</span>',est:'<span class="badge" style="background:#ede9fe;color:#6d28d9">高さ表示から推定</span>',none:'<span class="badge b-none">未検出</span>'})[s]||""; }
 function fieldHtml(S,f){
   const v=S.vals[f.k], s=S.src[f.k]==="none"&&(f.ai||f.flag)?"chk":S.src[f.k];
   const b=s==="chk"?'<span class="badge b-chk">要確認</span>':badge(s);
   if(f.flag) return `<div class="f"><label>${f.l} ${b}</label><select data-fk="${f.k}"><option value="0" ${!v?"selected":""}>無し</option><option value="1" ${v?"selected":""}>有り</option></select></div>`;
   const hint=[]; if(S.pv&&S.pv.src[f.k]==="ai"&&S.pv.P[f.k]!==v) hint.push(`<span class="hint ai">AI精密: ${fmtQ(S.pv.P[f.k])}</span>`);
   if(S.pv&&S.pv.src[f.k]==="cand"&&S.pv.P[f.k]!==v) hint.push(`<span class="hint cd">寸法から推定: ${fmtQ(S.pv.P[f.k])}</span>`);
-  return `<div class="f"><label>${f.l}（${f.u}）${f.note?`<small> ${f.note}</small>`:""} ${b}</label><input type="number" step="0.01" data-fk="${f.k}" value="${v}" class="${S.src[f.k]==="man"?"man":""}">${hint.join("")}</div>`;
+  return `<div class="f"><label>${f.l}（${f.u}）${f.note?`<small> ${f.note}</small>`:""} ${b}</label><input type="number" step="0.01" data-fk="${f.k}" value="${v}" class="${S.src[f.k]==="man"?"man":""}">${hint.join("")}${f.k==="STAIRS"&&S.src.STAIRS==="est"&&S.stairNote?`<span class="hint cd">根拠: ${esc(S.stairNote)}（最低の値は地盤で段に数えない）</span>`:""}</div>`;
+}
+async function printAll(mode){
+  const S=DB[CUR], suf=mode==="ai"?"_AI精密":"", ai=mode==="ai"&&S.pv;
+  let imgs=[];
+  try{
+    if(S.pdfDoc){ for(let p=1;p<=Math.min(S.pdfDoc.numPages,2);p++){ const pg=await S.pdfDoc.getPage(p), v1=pg.getViewport({scale:1}), vp=pg.getViewport({scale:2400/Math.max(v1.width,v1.height)});
+        const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height); const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height);
+        await pg.render({canvasContext:x,viewport:vp}).promise; imgs.push(c.toDataURL("image/jpeg",0.85)); } }
+    else if(S.imgUrl) imgs=[S.imgUrl];
+  }catch(e){}
+  const secs=TABS.map(t=>({n:t[1],q:calc(S,t[0],"q"),a:S.pv?calc(S,t[0],"ai"):null,m:calc(S,t[0],mode)}));
+  const sumQ=secs.reduce((a,s)=>a+s.q.ex,0), sumA=S.pv?secs.reduce((a,s)=>a+s.a.ex,0):0;
+  const d=new Date().toLocaleDateString("ja-JP");
+  let h=`<div><h2>積算書 一式${ai?"（AI精密）":""}</h2><p class="sub">物件名：${esc(S.name)}　／　作成日：${esc(d)}</p>
+    <table><tr><th>工事名</th><th>税別（クイック）</th>${S.pv?`<th>税別（AI精密）</th>`:""}</tr>`+
+    secs.map(s=>`<tr><td>${esc(s.n)}</td><td class="r">${yen(s.q.ex)}</td>${S.pv?`<td class="r">${yen(s.a.ex)}</td>`:""}</tr>`).join("")+
+    `<tr><th>合計（税別）</th><th class="r">${yen(sumQ)}</th>${S.pv?`<th class="r">${yen(sumA)}</th>`:""}</tr>
+     <tr><th>合計（税込）</th><th class="r">${yen(Math.trunc(sumQ*TAX_RATE))}</th>${S.pv?`<th class="r">${yen(Math.trunc(sumA*TAX_RATE))}</th>`:""}</tr></table>
+    <p class="sub" style="margin-top:8px">${ai?"この書類の各工事の明細は「AI精密」の数量です。":"この書類の各工事の明細は「クイック」（図面の文字から読み取った数量）です。"}</p></div>`;
+  secs.forEach(s=>{ h+=`<div class="pb"><h2>御見積書${ai?"（AI精密）":""}</h2><p class="sub">物件名：${esc(S.name)}　／　工事名：${esc(s.n)}</p>
+    <table><tr><th>項目名</th><th>数量</th><th>単位</th><th>単価</th><th>金額</th></tr>`+
+    s.m.rows.map(r=>`<tr><td>${esc(r.name)}</td><td class="r">${fmtQ(r.qty)}</td><td>${esc(r.unit)}</td><td class="r">${yen(r.price)}</td><td class="r">${yen(r.amount)}</td></tr>`).join("")+
+    `</table><h3>総合計（税別）：${yen(s.m.ex)}</h3><h3>総合計（税込）：${yen(s.m.inc)}</h3></div>`; });
+  imgs.forEach((u,i)=>{ h+=`<div class="pb land"><h2>配置図${imgs.length>1?"（"+(i+1)+"/"+imgs.length+"）":""}</h2><p class="sub">物件名：${esc(S.name)}</p><img class="plan" src="${u}"></div>`; });
+  $("#printArea").innerHTML=h;
+  const old=document.title; document.title=`${S.name}_積算一式${suf}`;
+  const back=()=>{document.title=old;window.removeEventListener("afterprint",back);};
+  window.addEventListener("afterprint",back); await new Promise(r=>setTimeout(r,300)); window.print(); setTimeout(back,60000);
 }
 function recomputePV(S){ if(S&&S.pv) computePV(S); }
 function renderTable(){
@@ -436,13 +448,14 @@ function renderTable(){
   h+=`</table></div><div class="tot"><span>クイック 税別 <span class="big">${yen(c1.ex)}</span></span><span>税込 <span class="big">${yen(c1.inc)}</span></span></div>`;
   if(ai) h+=`<div class="tot"><span>AI精密 税別 <span class="big ai">${yen(c2.ex)}</span></span><span>税込 <span class="big ai">${yen(c2.inc)}</span></span><span>差（税別） <span class="big ${c2.ex>=c1.ex?"":"neg"}">${c2.ex>=c1.ex?"+":"−"}${yen(Math.abs(c2.ex-c1.ex))}</span></span></div>`;
   h+=`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn p" id="btnPrint">📄 印刷 / PDF保存（クイック）</button>${ai?`<button class="btn a" id="btnPrint2">📄 印刷 / PDF保存（AI精密）</button>`:""}</div>
+  <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="btnAll">📦 全工事＋図面を1つのPDFに（クイック）</button>${ai?`<button class="btn" id="btnAll2">📦 全工事＋図面を1つのPDFに（AI精密）</button>`:""}</div>
     <div class="note" style="margin-top:6px">黄色の欄は手で書き換えた値です（↺で元に戻せます。クイック・AI精密の両方に反映されます）。青い欄は、AIを足したことで数量・金額が変わった項目です。現場諸経費は自動で5%になります。PDF保存のファイル名は「${esc(S.name)}_${esc(tn)}」（AI精密は末尾に「_AI精密」）になります。</div>`;
   $("#tbl").innerHTML=h;
   $("#tbl").querySelectorAll("input[data-r]").forEach(inp=>inp.onchange=()=>{
     const id=inp.dataset.r, f=inp.dataset.f; ov[id]=ov[id]||{};
     ov[id][f]=(f==="name"||f==="unit")?inp.value:(parseFloat(inp.value)||0); renderTable(); });
   $("#tbl").querySelectorAll("[data-rst]").forEach(b=>b.onclick=()=>{delete ov[b.dataset.rst];renderTable();});
-  $("#btnPrint").onclick=()=>doPrint("q"); if(ai) $("#btnPrint2").onclick=()=>doPrint("ai");
+  $("#btnPrint").onclick=()=>doPrint("q"); if(ai) $("#btnPrint2").onclick=()=>doPrint("ai"); $("#btnAll").onclick=()=>printAll("q"); if(ai) $("#btnAll2").onclick=()=>printAll("ai");
 }
 function doPrint(mode){
   const S=DB[CUR], tn=TABS.find(t=>t[0]===TAB)[1], c=calc(S,TAB,mode), suf=mode==="ai"?"_AI精密":"";
@@ -483,7 +496,7 @@ function buildPrompt(S){
    "",
    "【必ず読み取る項目】",
    "P_TOTAL: 駐車場の台数。凡例で「普通自動車P」「軽自動車P」が白丸(○)なら0。黒丸(●)のものは図面の台数表記や駐車枠を数える。",
-   "STAIRS: アプローチ・エントランスの階段の段数（ステップ数）。無ければ0。",
+   "STAIRS: 階段の段数。階段の各ステップに「+250」「+410」のような高さ表示（四角い囲み）が付く。最も低い表示（例：+90）は地盤(GL)で段に数えない。例：+90,+250,+410,+570 の4つなら3段。+100,+255,+410,+565,+720 の5つなら4段。図面内に階段が複数あれば合計する。無ければ0。",
    "JISAKI: 地先ブロックの総延長(m)。無ければ0。",
    "BIKES: サイクルストッパーが凡例で黒丸(●)のとき、図面内の駐輪スペース（自転車を停める記号の並び）が何台分あるか。記号を1つずつ数えること。白丸(○)なら0。",
    "C_LABEL: 「サイクルストッパー2400」のような名称＋寸法の文字ラベルの個数。",
@@ -584,7 +597,7 @@ function computePV(S){
       P[k]=k.startsWith("GOMI_")?(a>0?1:0):a; srcP[k]="ai";
       if(c!==undefined&&Math.abs(c-a)>0.05) notes.push(`${lab[k]}：AI=${fmtQ(a)} ／ 寸法から推定=${fmtQ(c)}`);
     } else if(c!==undefined&&cur==="none"){ P[k]=c; srcP[k]="cand"; }
-    else if(a!==undefined&&(cur==="text"||cur==="text0")&&!k.startsWith("GOMI_")&&Math.abs((+S.vals[k]||0)-a)>0.005) notes.push(`${lab[k]}：文字=${fmtQ(S.vals[k])} ／ AI=${fmtQ(a)}（文字を優先）`);
+    else if(a!==undefined&&(cur==="text"||cur==="text0"||cur==="est")&&!k.startsWith("GOMI_")&&Math.abs((+S.vals[k]||0)-a)>0.005) notes.push(`${lab[k]}：文字=${fmtQ(S.vals[k])} ／ AI=${fmtQ(a)}（文字を優先）`);
   });
   // サイクルストッパー：自転車3台につき1台（自転車の台数が分かればそちらを優先）
   if(S.src.C_UNIT!=="man"){
@@ -600,7 +613,7 @@ async function runAI(){
   const S=DB[CUR], key=getKey();
   if(!key){ S.aiMsg="⚠️ AIのキーが未設定です。右上の「🔑 AIの設定」から入力してください（使わない場合は、手入力でも見積は出せます）。"; render(); return; }
   S.busy="図面を画像にしています…"; S.aiMsg=""; render();
-  const stt=m=>{S.busy="🤖 "+m;const e=document.getElementById("aistat");if(e)e.textContent=S.busy;};
+  const stt=m=>{S.busy="🤖 "+m;const e=document.getElementById("aistat");if(e&&DB[CUR]===S)e.textContent=S.busy;};
   try{
     const imgs=await imagesForAI(S);
     const parts=[{text:buildPrompt(S)+(S.digest?"\n\n【図面内の文字データ】\n"+S.digest:"")}].concat(imgs.map(i=>({inline_data:{mime_type:i.mime,data:i.data}})));
@@ -608,7 +621,7 @@ async function runAI(){
     S.aiMsg="✅ AI精密積算が終わりました。下の見積に「AI精密」の列が追加されています。差のある項目は色が付きます。";
   }catch(e){ S.aiMsg="⚠️ AIの読み取りに失敗しました："+e.message; }
   if(S.aiv||Object.keys(S.cand||{}).length) computePV(S);
-  S.busy=""; render();
+  S.busy=""; S.aiDoneAt=Date.now(); render();
 }
 window.__APP={DB,calc,buildRows,parseItems,extractFromPdf,addFile,parseAI,computePV,get CUR(){return CUR;}};
 render();
