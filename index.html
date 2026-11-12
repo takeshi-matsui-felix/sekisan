@@ -86,7 +86,12 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
   #printArea{display:block!important;font-family:"Noto Sans JP","Yu Gothic",sans-serif;color:#000}
   #printArea h2{font-size:18px;margin:0 0 4px}
   #printArea .sub{font-size:13px;margin:0 0 12px}
-  #printArea table{border-collapse:collapse;width:100%;font-size:12px}
+  html,body{width:auto!important;min-width:0!important;overflow:visible!important}
+  #printArea{box-sizing:border-box;width:100%;max-width:186mm;padding:0 2mm 0 0;overflow:hidden}
+  #printArea table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:11px}
+  #printArea td,#printArea th{word-break:break-all;overflow-wrap:anywhere}
+  #printArea th:nth-child(1){width:40%}
+  #printArea h3{padding-right:2mm}
   #printArea th,#printArea td{border:1px solid #000;padding:5px 6px;text-align:left}
   #printArea td.r{text-align:right}
   #printArea h3{font-size:14px;margin:8px 0 0;text-align:right}
@@ -123,7 +128,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="2026.11.12.4";
+const APP_VERSION="2026.11.12.6";
 document.getElementById("ver").textContent="v"+APP_VERSION;
 
 /* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
@@ -160,6 +165,47 @@ const FIELDS=[
 const AI_ALWAYS=["JISAKI"];   // AIが読めば常に精密側へ反映する項目
 const CBKEYS=["CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7"];
 
+/* ================= 図面の線から「自転車の記号」を数える ================= */
+// フィリックスの配置図に入っている自転車（サイクルストッパー）の記号と同じ形の線のかたまりを数えます。
+// 見本の形(BIKE_T)は、図面と同じ縮尺（A3）の配置図から取った線分です。向きが違っても数えます。
+const BIKE_T=[[1.32,9,1.32,8.88],[1.32,8.88,1.68,8.52],[10.68,7.8,10.68,8.52],[10.68,7.8,15.96,7.8],[15.96,7.8,16.2,7.2],[16.2,7.2,16.68,6.72],[16.68,6.72,17.28,6.6],[17.28,6.6,18,6.84],[18,6.84,19.44,7.56],[19.44,7.56,21,8.04],[21,8.04,23.64,8.04],[23.64,7.2,23.64,8.04],[23.64,7.2,27.12,7.2],[27.12,7.2,26.76,6.96],[26.76,5.28,26.76,6.96],[26.76,5.28,27.12,4.92],[27.12,4.92,28.08,4.92],[28.08,4.92,28.44,5.28],[28.44,5.28,28.44,6.84],[28.44,6.84,28.2,7.2],[27.84,7.2,28.2,7.2],[27.84,7.2,27.84,7.56],[24.12,7.56,27.84,7.56],[24.12,7.56,24.12,8.04],[24.12,8.04,26.28,8.04],[26.28,8.04,26.28,8.76],[26.28,8.76,30.96,8.76],[30.96,8.76,31.2,8.52],[31.2,8.52,33.72,8.52],[33.72,4.68,33.72,8.52],[33.72,4.68,33.36,4.08],[33.36,4.08,32.28,3.36],[32.28,3.36,31.08,3.12],[31.08,3.12,30.24,2.88],[30.24,2.88,29.88,3],[29.88,3,27.36,2.52],[27.36,2.52,27.24,2.28],[27.24,2.28,27.36,1.92],[27.36,1.92,27.6,1.8],[27.6,1.8,30,2.28],[30,2.28,30.24,2.4],[30.24,2.4,32.04,2.76],[32.04,2.76,33.24,3.36],[33.24,3.36,33.96,3.96],[33.96,3.96,34.32,4.8],[34.32,4.8,34.32,8.52],[34.32,8.52,34.68,8.52],[34.68,4.92,34.68,8.52],[34.68,4.92,35.16,4.44],[43.68,4.44,44.28,4.92],[44.28,4.92,44.28,8.52],[44.28,8.52,50.04,8.52],[50.04,8.52,50.28,8.76],[50.28,8.76,50.28,9],[50.28,9,50.28,9.24],[50.28,9.24,50.04,9.48],[44.28,9.48,50.04,9.48],[44.28,9.48,44.28,13.08],[44.28,13.08,43.68,13.68],[35.16,13.68,34.68,13.2],[34.68,9.48,34.68,13.2],[34.32,9.48,34.68,9.48],[34.32,9.48,34.32,13.2],[34.32,13.2,33.96,14.04],[33.96,14.04,33.24,14.64],[33.24,14.64,32.04,15.24],[32.04,15.24,30.24,15.6],[30.24,15.6,30,15.84],[30,15.84,27.6,16.2],[27.6,16.2,27.36,16.08],[27.36,16.08,27.24,15.84],[27.24,15.84,27.36,15.6],[27.36,15.6,29.88,15.12],[29.88,15.12,30.24,15.12],[30.24,15.12,32.28,14.64],[32.28,14.64,33.36,13.92],[33.36,13.92,33.72,13.32],[33.72,9.48,33.72,13.32],[31.2,9.48,33.72,9.48],[31.2,9.48,30.96,9.36],[24.72,9.36,24.72,10.08],[24.12,10.08,24.72,10.08],[24.12,10.08,24.12,10.92],[20.52,10.92,24.12,10.92],[20.52,10.92,20.88,11.16],[20.88,11.16,20.88,12.84],[20.88,12.84,20.52,13.2],[19.56,13.2,20.52,13.2],[19.56,13.2,19.2,12.84],[19.2,11.16,19.2,12.84],[19.2,11.16,19.44,10.92],[19.44,10.92,19.8,10.92],[19.8,10.44,19.8,10.92],[19.8,10.44,23.52,10.44],[23.52,10.08,23.52,10.44],[23.52,10.08,22.92,10.08],[22.92,9.36,22.92,10.08],[22.92,9.36,22.8,9.36],[22.8,9.36,22.44,9.72],[22.44,9.72,21,10.08],[21,10.08,19.44,10.44],[19.44,10.44,18,11.28],[18,11.28,17.28,11.52],[17.28,11.52,16.68,11.4],[16.68,11.4,16.2,10.8],[16.2,10.8,15.96,10.2],[10.68,10.2,15.96,10.2],[10.68,9.48,10.68,10.2],[1.68,9.48,1.32,9.24],[1.32,9.24,1.32,9],[10.68,8.52,15.72,8.52],[10.68,9.48,15.72,9.48],[15.96,7.8,15.72,8.52],[15.72,8.52,15.72,9.48],[15.72,9.48,15.96,10.2],[21,8.04,21.84,8.28],[21.84,8.28,22.44,8.4],[22.44,8.4,22.8,8.64],[22.8,8.64,22.92,9],[22.92,9,22.8,9.36],[22.8,9.36,22.44,9.72],[22.44,9.72,21.84,9.84],[21.84,9.84,21,10.08],[23.52,10.08,24.12,10.08],[23.64,8.04,24.12,8.04],[27.12,7.2,27.84,7.2],[19.8,10.92,20.52,10.92],[26.28,8.4,22.44,8.4],[24.72,8.76,26.28,8.76],[24.72,8.4,24.72,8.76],[22.8,9.36,24.72,9.36],[22.8,8.76,24.72,8.76],[34.68,8.52,34.68,9.48],[44.28,8.52,44.28,9.48],[34.32,8.52,34.32,9.48],[30.96,8.76,34.32,8.76],[30.96,9.36,34.32,9.36],[33.36,8.76,33.48,8.52],[33.36,9.36,33.48,9.48],[30.24,2.88,30.24,2.4],[30.24,15.6,30.24,15.12]];
+function segsFromOL(ol,OPS){
+  const mul=(a,b)=>[a[0]*b[0]+a[1]*b[2],a[0]*b[1]+a[1]*b[3],a[2]*b[0]+a[3]*b[2],a[2]*b[1]+a[3]*b[3],a[4]*b[0]+a[5]*b[2]+b[4],a[4]*b[1]+a[5]*b[3]+b[5]];
+  let ctm=[1,0,0,1,0,0],st=[],out=[];
+  for(let i=0;i<ol.fnArray.length;i++){ const f=ol.fnArray[i],a=ol.argsArray[i];
+    if(f===OPS.save)st.push(ctm.slice()); else if(f===OPS.restore)ctm=st.pop()||ctm; else if(f===OPS.transform)ctm=mul(a,ctm);
+    else if(f===OPS.constructPath){ const ops=a[0],xs=a[1]; let k=0,cx=null,cy=null;
+      const P=(x,y)=>[x*ctm[0]+y*ctm[2]+ctm[4],x*ctm[1]+y*ctm[3]+ctm[5]];
+      for(const o of ops){
+        if(o===OPS.moveTo){[cx,cy]=P(xs[k],xs[k+1]);k+=2;}
+        else if(o===OPS.lineTo){const [x,y]=P(xs[k],xs[k+1]);k+=2;if(cx!==null)out.push([cx,cy,x,y]);cx=x;cy=y;}
+        else if(o===OPS.curveTo){const [x,y]=P(xs[k+4],xs[k+5]);k+=6;if(cx!==null)out.push([cx,cy,x,y]);cx=x;cy=y;}
+        else if(o===OPS.curveTo2||o===OPS.curveTo3){const [x,y]=P(xs[k+2],xs[k+3]);k+=4;if(cx!==null)out.push([cx,cy,x,y]);cx=x;cy=y;}
+        else if(o===OPS.rectangle){k+=4;}
+      } }
+  }
+  return out;
+}
+function findBikes(segs){
+  const norm=g=>{ const dx=g[2]-g[0],dy=g[3]-g[1]; return (dx<-1e-6||(Math.abs(dx)<=1e-6&&dy<0))?[g[2],g[3],g[0],g[1]]:g; };
+  const q=v=>Math.round(v*5), key=g=>q(g[2]-g[0])+","+q(g[3]-g[1]);
+  const idx=new Map(); segs.forEach(g0=>{ const g=norm(g0); if(Math.hypot(g[2]-g[0],g[3]-g[1])>=6) return; const k=key(g); (idx.get(k)||(idx.set(k,[]),idx.get(k))).push(g); });
+  const found=[];
+  for(let r=0;r<4;r++) for(let m=0;m<2;m++){
+    const f=([x,y])=>{ let X=m?-x:x, Y=y; for(let i=0;i<r;i++){const t=X;X=-Y;Y=t;} return [X,Y]; };
+    const T=BIKE_T.map(g=>{const a=f([g[0],g[1]]),b=f([g[2],g[3]]);return norm([a[0],a[1],b[0],b[1]]);});
+    const cxs=T.map(g=>g[0]),cys=T.map(g=>g[1]), cx=(Math.min(...cxs)+Math.max(...cxs))/2, cy=(Math.min(...cys)+Math.max(...cys))/2;
+    const votes=new Map();
+    T.forEach(t=>{ (idx.get(key(t))||[]).forEach(g=>{ const kk=Math.round((g[0]-t[0])/0.5)+","+Math.round((g[1]-t[1])/0.5); votes.set(kk,(votes.get(kk)||0)+1); }); });
+    // 票が隣の枠に割れることがあるので、まわり1枠ぶんを足し合わせて山を探す
+    const sm=[]; votes.forEach((v,kk)=>{ const [tx,ty]=kk.split(",").map(Number); let t=0; for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++) t+=votes.get((tx+i)+","+(ty+j))||0; if(t>=T.length*0.55) sm.push([kk,t]); });
+    sm.sort((a,b)=>b[1]-a[1]);
+    sm.forEach(([kk])=>{ const [tx,ty]=kk.split(",").map(Number), X=tx*0.5+cx, Y=ty*0.5+cy;
+      if(!found.some(o=>Math.abs(o[0]-X)<8&&Math.abs(o[1]-Y)<8)) found.push([X,Y]); });
+  }
+  return found.length;
+}
+
 /* ================= 図面の文字の取り出し ================= */
 async function extractFromPdf(doc){
   const items=[];
@@ -173,6 +219,7 @@ async function extractFromPdf(doc){
   [...items].filter(i=>i.p<=2).sort((a,b)=>a.p-b.p||b.y-a.y||a.x-b.x).forEach(i=>{
     if(dg.length<60000) dg+=`${i.p}|${Math.round(i.x/i.W*1000)},${Math.round((i.H-i.y)/i.H*1000)}|${i.s.trim()}\n`; });
   res.digest=dg;
+  try{ let n=0; for(let p=1;p<=Math.min(doc.numPages,2);p++){ const pg=await doc.getPage(p); n+=findBikes(segsFromOL(await pg.getOperatorList(),pdfjsLib.OPS)); } res.bikeCount=n; }catch(e){ res.bikeCount=0; }
   return res;
 }
 function parseItems(items){
@@ -218,7 +265,7 @@ function parseItems(items){
   };
   const gb=legend("ゴミボックス"); if(gb!==null) set("GOMI_BOX",gb);
   const ga=legend("ゴミ集積所"); if(ga!==null) set("GOMI_AREA",ga);
-  const cy=legend("サイクルストッパ");
+  const cy=legend("サイクルストッパ"); res.cycleLegend=cy;
   if(cy!==null){
     if(cy===0) set("C_UNIT",0);
     else { const n=(all.match(/サイクルストッパー\d{3,}/g)||[]).length; if(n>0) set("C_UNIT",n); }
@@ -330,6 +377,7 @@ function applyExtract(S,ex){
   S.noText=!!ex.noText; S.rc=ex.raw.RC.map(r=>({...r}));
   FIELDS.forEach(f=>{ S.vals[f.k]=ex.vals[f.k]!==undefined?ex.vals[f.k]:0; S.src[f.k]=ex.src[f.k]||"none"; });
   S.src.RC=ex.src.RC||"none"; S.cand={...(ex.cand||{})}; S.digest=ex.digest||"";
+  if(ex.bikeCount>0&&ex.cycleLegend!==0){ S.vals.BIKES=ex.bikeCount; S.src.BIKES="est"; S.vals.C_UNIT=Math.ceil(ex.bikeCount/3); S.src.C_UNIT="est"; }
   if(S.cand.STAIRS>0&&S.src.STAIRS==="none"){ S.vals.STAIRS=S.cand.STAIRS; S.src.STAIRS="est"; S.stairNote=(ex.stairChains||[]).map(c=>c.map(v=>"+"+v).join(" ")).join(" ／ "); delete S.cand.STAIRS; }
 }
 
@@ -399,7 +447,7 @@ function render(){
   main.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;render();drawPdf();});
   renderTable(); const det=$("#pdfdet"); if(det) det.ontoggle=()=>{S.pdfOpen=det.open; if(det.open)drawPdf();};
 }
-function badge(s){ return ({text:'<span class="badge b-text">文字から</span>',text0:'<span class="badge b-text">記載なし=0</span>',ai:'<span class="badge b-ai">AI</span>',man:'<span class="badge b-man">手入力</span>',est:'<span class="badge" style="background:#ede9fe;color:#6d28d9">高さ表示から推定</span>',none:'<span class="badge b-none">未検出</span>'})[s]||""; }
+function badge(s){ return ({text:'<span class="badge b-text">文字から</span>',text0:'<span class="badge b-text">記載なし=0</span>',ai:'<span class="badge b-ai">AI</span>',man:'<span class="badge b-man">手入力</span>',est:'<span class="badge" style="background:#ede9fe;color:#6d28d9">図面から推定</span>',none:'<span class="badge b-none">未検出</span>'})[s]||""; }
 function fieldHtml(S,f){
   const v=S.vals[f.k], s=S.src[f.k]==="none"&&(f.ai||f.flag)?"chk":S.src[f.k];
   const b=s==="chk"?'<span class="badge b-chk">要確認</span>':badge(s);
