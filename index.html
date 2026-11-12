@@ -128,13 +128,13 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="2026.11.12.6";
+const APP_VERSION="2026.11.12.7";
 document.getElementById("ver").textContent="v"+APP_VERSION;
 
 /* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
 const PRICE={CB1:6500,CB2:7000,CB3:9500,CB4:12000,CB5:15000,CP5:22000,CP6:30000,CP7:35000,
   ZANDO_G:8500,ZANDO_S:27000,SAISEKI:400,MORIDO:3500,SEICHI:45000,JUKI:35000,TENBA:600,
-  GAI_MIZUMORI:45000,GAI_JUKI:35000,TILE:50000,HABAKI:60000,DOMA:9000,DOMA_PUMP:45000,KURUMA:6000,LINE:18000,
+  GAI_MIZUMORI:45000,GAI_JUKI:35000,JUSUI:150000,TILE:50000,HABAKI:60000,DOMA:9000,DOMA_PUMP:45000,KURUMA:6000,LINE:18000,
   JISAKI:4000,CYCLE:7500,GOMIBOX:7500,GOMIAREA:100000,SLIT:1500,HAISUI:12500,ENTMORTAR:35000,KAIDAN:15000,
   KISO_TSUBO:70000,SUTECON:2000,UB:30000,TESTPIECE:25000,PUMP_K:35000,ONDO:2000,
   PANEL_TSUBO:63500,TSURIGI:150000};
@@ -160,7 +160,7 @@ const FIELDS=[
  {k:"CP5",l:"CP5段",u:"m"},{k:"CP6",l:"CP6段",u:"m"},{k:"CP7",l:"CP7段",u:"m"},
  {k:"P_TOTAL",l:"駐車場台数",u:"台",ai:1},{k:"BIKES",l:"自転車の台数",u:"台",ai:1,note:"3台で1台"},{k:"C_UNIT",l:"サイクルストッパー設置数",u:"台",ai:1},
  {k:"STAIRS",l:"階段施工 段数",u:"段",ai:1},{k:"JISAKI",l:"地先ブロック",u:"m",ai:1},
- {k:"GOMI_BOX",l:"ゴミボックス",u:"",flag:1},{k:"GOMI_AREA",l:"ゴミ集積所",u:"",flag:1}
+ {k:"GOMI_BOX",l:"ゴミボックス",u:"",flag:1},{k:"GOMI_AREA",l:"ゴミ集積所",u:"",flag:1},{k:"JUSUI",l:"受水槽",u:"",flag:1}
 ];
 const AI_ALWAYS=["JISAKI"];   // AIが読めば常に精密側へ反映する項目
 const CBKEYS=["CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7"];
@@ -293,6 +293,14 @@ function parseItems(items){
     const plan=items.filter(i=>/^(ごみ|ゴミ)集積所$/.test(nz(i.s))&&!marks.some(m=>m.p===i.p&&Math.abs(m.y-i.y)<3&&m.x<i.x&&i.x-m.x<40));
     if(plan.length) set("GOMI_AREA",1);
   }
+  // 受水槽：配置図の中に「受水槽」の記載があれば「有り」（数量1）。凡例の項目は黒丸(●)なら有り、白丸(○)なら無し
+  {
+    const tk=items.filter(i=>/^受水槽(?!の)/.test(nz(i.s))&&nz(i.s).length<=14);
+    const withMark=tk.filter(i=>marks.some(m=>m.p===i.p&&Math.abs(m.y-i.y)<3&&m.x<i.x&&i.x-m.x<40));
+    const plan=tk.filter(i=>!withMark.includes(i));
+    if(plan.length) set("JUSUI",1);
+    else if(withMark.length){ const on=withMark.some(i=>{const m=marks.filter(m=>m.p===i.p&&Math.abs(m.y-i.y)<3&&m.x<i.x&&i.x-m.x<40).sort((a,b)=>b.x-a.x)[0];return m&&m.s.trim()==="●";}); set("JUSUI",on?1:0); }
+  }
   // 駐車場：「中型車専用」「軽自動車専用」などの枠の数（普通車も軽も同じ1台）。枠がなければ凡例の「普通自動車P（1台）」の台数
   const spots=items.filter(i=>/^(軽自動車|軽|普通自動車|普通車|普通|中型車|中型|大型車|大型|小型車|小型)専用$/.test(nz(i.s))).length;
   let pt=null;
@@ -347,7 +355,7 @@ function buildRows(V,RC){
     R("DOMA","土間コンクリートt=100",doma,"㎡",PRICE.DOMA),R("DPUMP","土間ポンプ車",doma>0?1:0,"回",PRICE.DOMA_PUMP),
     R("KURUMA","車止め2セット/台",g("P_TOTAL"),"台",PRICE.KURUMA),R("LINE","駐車場ライン引き",g("P_TOTAL"),"台",PRICE.LINE),
     R("JISAKI","地先ブロック120面取り",g("JISAKI"),"m",PRICE.JISAKI),R("CYCLE","サイクルストッパー固定",g("C_UNIT"),"台",PRICE.CYCLE),
-    R("GBOX","ゴミボックス組み立て",g("GOMI_BOX")>0?1:0,"台",PRICE.GOMIBOX),R("GAREA","ゴミ集積所 6段",g("GOMI_AREA")>0?1:0,"式",PRICE.GOMIAREA),
+    R("GBOX","ゴミボックス組み立て",g("GOMI_BOX")>0?1:0,"台",PRICE.GOMIBOX),R("GAREA","ゴミ集積所 6段",g("GOMI_AREA")>0?1:0,"式",PRICE.GOMIAREA),R("JUSUI","受水槽（ベース）",g("JUSUI")>0?1:0,"式",PRICE.JUSUI),
     R("SLIT","土間スリット部砕石敷き",rnd2(cbSum),"m",PRICE.SLIT),R("HAISUI","1階バルコニー・共用部 排水溝",4,"か所",PRICE.HAISUI),
     R("ENT","エントランスドア内モルタル金鏝",1,"式",PRICE.ENTMORTAR),R("KAIDAN","階段施工",g("STAIRS"),"段",PRICE.KAIDAN),R("EXP","現場諸経費（5%）",1,"式",0,{exp:1})];
   const k=[R("KISO","基礎本体工事（坪単価）",tsubo,"坪",PRICE.KISO_TSUBO),R("SUTE","スラブ下捨てコン",g("B_AREA"),"㎡",PRICE.SUTECON),R("UB","UB立上断熱材",1,"式",PRICE.UB),
@@ -545,7 +553,7 @@ $("#keyDel").onclick=()=>{try{localStorage.removeItem(KEYNAME);sessionStorage.re
 
 const KEYLABEL={S_AREA:"敷地面積(㎡)",B_AREA:"建築面積(㎡)",TOTAL_AREA:"延床面積(㎡)",F_DEEP_VAL:"深基礎費用(万円)",MORIDO:"盛土(m3)",ZANDO:"残土処分(m3)",
   CB1:"CB1段の長さ(m)",CB2:"CB2段の長さ(m)",CB3:"CB3段の長さ(m)",CB4:"CB4段の長さ(m)",CB5:"CB5段の長さ(m)",CP5:"CP5段の長さ(m)",CP6:"CP6段の長さ(m)",CP7:"CP7段の長さ(m)",
-  GOMI_BOX:"ゴミボックス(有=1/無=0)",GOMI_AREA:"ゴミ集積所(有=1/無=0)"};
+  GOMI_BOX:"ゴミボックス(有=1/無=0)",GOMI_AREA:"ゴミ集積所(有=1/無=0)",JUSUI:"受水槽(図面に受水槽の記載・囲いがあれば1/無ければ0)"};
 function buildPrompt(S){
   const need=Object.keys(KEYLABEL).filter(k=>!(S.src[k]==="text"||S.src[k]==="text0"||S.src[k]==="man"));
   const lines=[
@@ -637,7 +645,7 @@ async function callGemini(key,parts,st){
   if(quota&&quota===errs.length) throw new Error("Geminiの利用上限（無料枠の回数・容量）に達しています。数分〜翌日まで待つか、Google AI Studioで課金設定（有料プラン）をしてください。試したモデル："+errs.join("、"));
   throw new Error("すべてのモデルで失敗しました（"+errs.join("、")+"）");
 }
-const AI_KEYS=["S_AREA","B_AREA","TOTAL_AREA","F_DEEP_VAL","MORIDO","ZANDO","CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7","P_TOTAL","STAIRS","JISAKI","BIKES","C_LABEL","RC2000","RC2500","GOMI_BOX","GOMI_AREA"];
+const AI_KEYS=["S_AREA","B_AREA","TOTAL_AREA","F_DEEP_VAL","MORIDO","ZANDO","CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7","P_TOTAL","STAIRS","JISAKI","BIKES","C_LABEL","RC2000","RC2500","GOMI_BOX","GOMI_AREA","JUSUI"];
 function parseAI(text){
   const rt=text.includes("###RESULT###")?text.split("###RESULT###").pop():text, out={};
   AI_KEYS.forEach(k=>{ const m=rt.match(new RegExp("(?:^|[^A-Z_0-9])"+k+"\\s*[:：]\\s*([\\d.]+)")); if(m) out[k]=rnd2(parseFloat(m[1])); });
@@ -652,10 +660,10 @@ function computePV(S){
     if(cur==="man") return;
     const a=aiv[k], c=cand[k];
     if(a!==undefined&&(AI_ALWAYS.includes(k)||cur==="none"||cur===undefined)){
-      P[k]=k.startsWith("GOMI_")?(a>0?1:0):a; srcP[k]="ai";
+      P[k]=f.flag?(a>0?1:0):a; srcP[k]="ai";
       if(c!==undefined&&Math.abs(c-a)>0.05) notes.push(`${lab[k]}：AI=${fmtQ(a)} ／ 寸法から推定=${fmtQ(c)}`);
     } else if(c!==undefined&&cur==="none"){ P[k]=c; srcP[k]="cand"; }
-    else if(a!==undefined&&(cur==="text"||cur==="text0"||cur==="est")&&!k.startsWith("GOMI_")&&Math.abs((+S.vals[k]||0)-a)>0.005) notes.push(`${lab[k]}：文字=${fmtQ(S.vals[k])} ／ AI=${fmtQ(a)}（文字を優先）`);
+    else if(a!==undefined&&(cur==="text"||cur==="text0"||cur==="est")&&!f.flag&&Math.abs((+S.vals[k]||0)-a)>0.005) notes.push(`${lab[k]}：文字=${fmtQ(S.vals[k])} ／ AI=${fmtQ(a)}（文字を優先）`);
   });
   // サイクルストッパー：自転車3台につき1台（自転車の台数が分かればそちらを優先）
   if(S.src.C_UNIT!=="man"){
