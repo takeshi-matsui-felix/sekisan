@@ -123,7 +123,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:8px;borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="2026.11.12.3";
+const APP_VERSION="2026.11.12.4";
 document.getElementById("ver").textContent="v"+APP_VERSION;
 
 /* ================= 単価・設定（ここを書き換えれば単価が変わります） ================= */
@@ -157,7 +157,7 @@ const FIELDS=[
  {k:"STAIRS",l:"階段施工 段数",u:"段",ai:1},{k:"JISAKI",l:"地先ブロック",u:"m",ai:1},
  {k:"GOMI_BOX",l:"ゴミボックス",u:"",flag:1},{k:"GOMI_AREA",l:"ゴミ集積所",u:"",flag:1}
 ];
-const AI_ALWAYS=["P_TOTAL","JISAKI"];   // AIが読めば常に精密側へ反映する項目
+const AI_ALWAYS=["JISAKI"];   // AIが読めば常に精密側へ反映する項目
 const CBKEYS=["CB1","CB2","CB3","CB4","CB5","CP5","CP6","CP7"];
 
 /* ================= 図面の文字の取り出し ================= */
@@ -246,6 +246,16 @@ function parseItems(items){
     const plan=items.filter(i=>/^(ごみ|ゴミ)集積所$/.test(nz(i.s))&&!marks.some(m=>m.p===i.p&&Math.abs(m.y-i.y)<3&&m.x<i.x&&i.x-m.x<40));
     if(plan.length) set("GOMI_AREA",1);
   }
+  // 駐車場：「中型車専用」「軽自動車専用」などの枠の数（普通車も軽も同じ1台）。枠がなければ凡例の「普通自動車P（1台）」の台数
+  const spots=items.filter(i=>/^(軽自動車|軽|普通自動車|普通車|普通|中型車|中型|大型車|大型|小型車|小型)専用$/.test(nz(i.s))).length;
+  let pt=null;
+  if(spots>0) pt=spots;
+  else{
+    const names=["普通自動車P","軽自動車P"]; let tot=0,found=0,on=false;
+    names.forEach(nm=>{ const lab=items.find(i=>nz(i.s).startsWith(nm)); if(lab&&legend(nm)===1){ on=true; const m=nz(lab.s).match(/\((\d+)台\)/); if(m){tot+=+m[1];found++;} } });
+    if(on&&found) pt=tot; else if(!on&&names.every(nm=>legend(nm)===0)) pt=0;
+  }
+  if(pt!==null) set("P_TOTAL",pt);
   // 階段：「+90」「+250」「+410」のような高さ表示が約160mmずつ並んでいれば階段。いちばん低い表示は地盤(GL)なので、段数＝個数−1
   const lv=items.map(i=>({t:nz(i.s),x:i.x,y:i.y,p:i.p})).filter(o=>/^\+\d{2,4}$/.test(o.t)).map(o=>({...o,v:parseInt(o.t.slice(1))}));
   let live=[...lv], stairs=0, chains=[];
@@ -495,7 +505,7 @@ function buildPrompt(S){
    "文字データは「ページ|横,縦(0〜1000・左上が原点)|文字」の形式です。寸法の数字や注記は、文字データの方が画像より正確です。画像は位置関係・記号の数え上げに使ってください。",
    "",
    "【必ず読み取る項目】",
-   "P_TOTAL: 駐車場の台数。凡例で「普通自動車P」「軽自動車P」が白丸(○)なら0。黒丸(●)のものは図面の台数表記や駐車枠を数える。",
+   "P_TOTAL: 駐車場の台数。普通車・中型車・軽自動車は区別せず、駐車枠1つを1台と数える（「中型車専用 2.5m×5.0m」「軽」などの枠）。凡例で「普通自動車P」「軽自動車P」が白丸(○)なら0。",
    "STAIRS: 階段の段数。階段の各ステップに「+250」「+410」のような高さ表示（四角い囲み）が付く。最も低い表示（例：+90）は地盤(GL)で段に数えない。例：+90,+250,+410,+570 の4つなら3段。+100,+255,+410,+565,+720 の5つなら4段。図面内に階段が複数あれば合計する。無ければ0。",
    "JISAKI: 地先ブロックの総延長(m)。無ければ0。",
    "BIKES: サイクルストッパーが凡例で黒丸(●)のとき、図面内の駐輪スペース（自転車を停める記号の並び）が何台分あるか。記号を1つずつ数えること。白丸(○)なら0。",
